@@ -3,16 +3,19 @@ package net.blakelee.sdandroid.text2image
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import net.blakelee.sdandroid.network.StableDiffusionService
 import net.blakelee.sdandroid.network.Text2ImageBody
 import net.blakelee.sdandroid.persistence.Config
+import retrofit2.HttpException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -21,32 +24,45 @@ class Text2ImageViewModel @Inject constructor(
     private val appConfig: Config
 ) : ViewModel() {
 
-    var config by mutableStateOf(Text2ImageBody(""))
-    var images by mutableStateOf<List<Bitmap>?>(null)
+    data class State(
+        val prompt: String = "",
+        val configuration: Float = 7f,
+        val steps: Int = 20,
+        val processing: Boolean = false,
+        val images: List<Bitmap> = emptyList(),
+        val url: Flow<String>
+    )
+
+    var state by mutableStateOf(State(url = appConfig.urlFlow))
+        private set
 
     fun setPrompt(prompt: String) {
-        config = config.copy(prompt = prompt)
+        state = state.copy(prompt = prompt)
     }
 
     fun setConfigurationScale(configuration: Float) {
-        config = config.copy(cfg_scale = configuration)
+        state = state.copy(configuration = configuration)
     }
 
     fun setSteps(steps: Int) {
-        config = config.copy(steps = steps)
+        state = state.copy(steps = steps)
     }
 
     fun submit() {
         viewModelScope.launch {
             runCatching {
-                val response = service.text2Image(config)
+                state = state.copy(processing = true)
+                val body = with(state) { Text2ImageBody(prompt, steps, configuration) }
+                val response = service.text2Image(body)
 
-                images = response
-                    .images
-                    .map { encodedImage ->
-                        val decodedString = Base64.decode(encodedImage, Base64.DEFAULT)
-                        BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
-                    }
+                state = state.copy(
+                    images = response
+                        .images
+                        .mapToBitmap(),
+                    processing = false
+                )
+            }.onFailure {
+                Log.d(this::class.simpleName, (it as? HttpException)?.message().orEmpty())
             }
         }
     }
@@ -54,6 +70,17 @@ class Text2ImageViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             appConfig.setUrl("")
+        }
+    }
+
+    private fun List<String>.mapToBitmap(): List<Bitmap> {
+        return this.map { encodedString ->
+            val strippedEncodedImage = encodedString
+                .replace("data:image/png;base64,", "")
+                .replace("data:image/jpeg;base64,", "")
+
+            val decodedString = Base64.decode(strippedEncodedImage, Base64.DEFAULT)
+            BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
         }
     }
 }

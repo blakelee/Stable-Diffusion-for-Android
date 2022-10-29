@@ -17,6 +17,11 @@ class LandingPageViewModel @Inject constructor(
     val isLoggedIn = config.urlFlow.map { it.isNotBlank() }
 
     fun login(url: String) {
+        val url = when (url.any { !it.isLetterOrDigit() }) {
+            true -> url.dropLastWhile { it == '/' }
+            false -> "https://$url.gradio.app"
+        }
+
         viewModelScope.launch {
             config.setUrl(url)
         }
