@@ -1,10 +1,19 @@
 package net.blakelee.sdandroid.main
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
@@ -15,79 +24,89 @@ import com.ramcosta.composedestinations.utils.isRouteOnBackStack
 import net.blakelee.sdandroid.NavGraph
 import net.blakelee.sdandroid.NavGraphs
 import net.blakelee.sdandroid.appDestination
-import net.blakelee.sdandroid.ui.theme.darkTan
-import net.blakelee.sdandroid.ui.theme.tan
 
 @Composable
-fun BottomBar(navController: NavHostController) {
+fun BottomBar(navController: NavHostController, viewModel: MainViewModel) {
 
-    NavigationBar(contentColor = darkTan, containerColor = tan) {
-        BottomBarItem.values().forEachIndexed { index, item ->
-            val isCurrentDestOnBackStack = navController.isRouteOnBackStack(item.route)
-            val currentDestination = navController.currentBackStackEntryAsState().value
-            val isSelected = currentDestination?.appDestination() == item.route ||
-                    (item.route as? NavGraph)
-                        ?.destinations
-                        ?.contains(currentDestination?.appDestination()) ?: false
+    BottomAppBar(
+        actions = {
+            BottomBarItem.values().forEachIndexed { index, item ->
+                val isCurrentDestOnBackStack = navController.isRouteOnBackStack(item.route)
+                val currentDestination = navController.currentBackStackEntryAsState().value
+                val isSelected = currentDestination?.appDestination() == item.route ||
+                        (item.route as? NavGraph)
+                            ?.destinations
+                            ?.contains(currentDestination?.appDestination()) ?: false
 
-
-            NavigationBarItem(
-                selected = isSelected,
-                onClick = {
-
-                    if (isCurrentDestOnBackStack) {
-                        // When we click again on a bottom bar item and it was already selected
-                        // we want to pop the back stack until the initial destination of this bottom bar item
-                        navController.popBackStack(item.route, false)
-                        return@NavigationBarItem
-                    }
-
-                    navController.navigate(item.route.route) {
-                        // Pop up to the root of the graph to
-                        // avoid building up a large stack of destinations
-                        // on the back stack as users select items
-                        popUpTo(NavGraphs.app) {
-                            saveState = true
-                            inclusive = true
+                InputChip(
+                    selected = isSelected,
+                    onClick = {
+                        if (isCurrentDestOnBackStack) {
+                            // When we click again on a bottom bar item and it was already selected
+                            // we want to pop the back stack until the initial destination of this bottom bar item
+                            navController.popBackStack(item.route, false)
+                            return@InputChip
                         }
 
-                        // Avoid multiple copies of the same destination when
-                        // reselecting the same item
-                        launchSingleTop = true
-                        // Restore state when reselecting a previously selected item
-                        restoreState = true
-                    }
-                },
-                icon = {
-                    BadgedBox(badge = {
-                        if (isSelected && index > 0) {
-                            Badge { Text(index.toString()) }
+                        navController.navigate(item.route.route) {
+                            // Pop up to the root of the graph to
+                            // avoid building up a large stack of destinations
+                            // on the back stack as users select items
+                            popUpTo(NavGraphs.app) {
+                                saveState = true
+                                inclusive = true
+                            }
+
+                            // Avoid multiple copies of the same destination when
+                            // reselecting the same item
+                            launchSingleTop = true
+                            // Restore state when reselecting a previously selected item
+                            restoreState = true
                         }
-                    }) {
-                        Icon(
-                            painterResource(item.icon),
-                            stringResource(item.label)
-                        )
-                    }
-                },
-                label = { Text(stringResource(item.label)) },
-                colors = mainNavigationBarItemColors()
+                    },
+                    label = { Icon(painterResource(item.icon), null) },
+                    border = InputChipDefaults.inputChipBorder(borderColor = Color.Transparent)
+                )
+            }
+        },
+        floatingActionButton = {
+
+            val duration = if (!viewModel.processing) 0 else 350
+            val progress by animateFloatAsState(
+                viewModel.progress,
+                tween(duration, 0, LinearEasing)
             )
-        }
-    }
-}
+            val brush = loadingBrush(viewModel.processing, progress)
 
-@Composable
-fun mainNavigationBarItemColors() = NavigationBarItemDefaults.colors(
-    selectedIconColor = Color(0xFF1C1C07),
-    selectedTextColor = Color(0xFF24231F),
-    unselectedIconColor = Color(0xFF484638),
-    unselectedTextColor = Color(0xFF484638),
-    indicatorColor = Color(0xFFE7E5C0)
-)
+            FloatingActionButton(
+                onClick = { if (viewModel.processing) viewModel.cancel() else viewModel.submit() },
+                containerColor = Color.Transparent,
+                elevation = FloatingActionButtonDefaults.bottomAppBarFabElevation(),
+                modifier = Modifier.background(brush, FloatingActionButtonDefaults.shape)
+            ) {
+                Icon(Icons.Filled.Add, "Localized description")
+            }
+        })
+}
 
 fun NavOptionsBuilder.popUpToTop(navController: NavController) {
     popUpTo(navController.currentBackStackEntry?.destination?.route ?: return) {
         inclusive = true
+    }
+}
+
+@Composable
+fun loadingBrush(processing: Boolean, progress: Float): Brush {
+    return when (processing) {
+        false -> SolidColor(MaterialTheme.colorScheme.primaryContainer)
+        true ->
+            Brush.horizontalGradient(
+                0.0f to Color(0xFFFF8000),
+                progress to Color(0xFFFF8000),
+                progress to MaterialTheme.colorScheme.primaryContainer,
+                1.0f to MaterialTheme.colorScheme.primaryContainer,
+                startX = 0f,
+                endX = Float.POSITIVE_INFINITY
+            )
     }
 }

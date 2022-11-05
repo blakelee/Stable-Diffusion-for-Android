@@ -10,8 +10,12 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import net.blakelee.sdandroid.di.AppState
 import net.blakelee.sdandroid.network.StableDiffusionService
 import net.blakelee.sdandroid.network.Text2ImageBody
 import net.blakelee.sdandroid.persistence.Config
@@ -21,17 +25,30 @@ import javax.inject.Inject
 @HiltViewModel
 class Text2ImageViewModel @Inject constructor(
     private val service: StableDiffusionService,
-    private val appConfig: Config
-) : ViewModel() {
+    private val appConfig: Config,
+    appState: AppState
+) : ViewModel(), AppState by appState {
+
+    init {
+        onCancel = {
+            viewModelScope.cancel()
+            processing = false
+            progress = 0f
+        }
+
+        onProcess = {
+            submit()
+        }
+    }
 
     data class State(
         val prompt: String = "",
         val configuration: Float = 7f,
         val steps: Int = 20,
-        val processing: Boolean = false,
         val images: List<Bitmap> = emptyList(),
         val url: Flow<String>
     )
+
 
     var state by mutableStateOf(State(url = appConfig.urlFlow))
         private set
@@ -51,18 +68,38 @@ class Text2ImageViewModel @Inject constructor(
     fun submit() {
         viewModelScope.launch {
             runCatching {
-                state = state.copy(processing = true)
+                processing = true
+
+                progress()
+
                 val body = with(state) { Text2ImageBody(prompt, steps, configuration) }
                 val response = service.text2Image(body)
 
-                state = state.copy(
-                    images = response
-                        .images
-                        .mapToBitmap(),
-                    processing = false
-                )
+                state = state.copy(images = response.images.mapToBitmap())
+
+                // Artificial delay to finish the animation
+                delay(350)
             }.onFailure {
                 Log.d(this::class.simpleName, (it as? HttpException)?.message().orEmpty())
+            }
+
+            processing = false
+            progress = 0f
+        }
+    }
+
+    private fun progress() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                var progress: Float
+                var hasLoaded = false
+                do {
+                    val serverProgress = service.progress().progress
+                    progress = if (serverProgress == 0f && hasLoaded) 1f else serverProgress
+                    hasLoaded = true
+                    this@Text2ImageViewModel.progress = progress
+                    delay(250)
+                } while (processing)
             }
         }
     }

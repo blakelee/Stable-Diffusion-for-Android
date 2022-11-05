@@ -8,7 +8,9 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -49,7 +51,7 @@ import java.io.IOException
 @Composable
 fun Text2ImageScreen(
     navController: NavController,
-    viewModel: Text2ImageViewModel = hiltViewModel(),
+    viewModel: Text2ImageViewModel = hiltViewModel()
 ) {
 
     val state = viewModel.state
@@ -94,7 +96,8 @@ fun Text2ImageScreen(
                 text = stringResource(id = R.string.submit),
                 disabledText = stringResource(id = R.string.processing),
                 onClick = { focusManager.clearFocus(); viewModel.submit() },
-                enabled = !state.processing,
+                enabled = !viewModel.processing,
+                progress = viewModel.progress,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -116,12 +119,16 @@ fun ProgressButton(
     disabledText: String,
     onClick: () -> Unit,
     enabled: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    progress: Float = 0F,
 ) {
+
+    val duration by remember(enabled) { derivedStateOf { if (enabled) 0 else 350 } }
+    val progress by animateFloatAsState(progress, tween(duration, 0, LinearEasing))
+
     val maybeBackground: Modifier = when (enabled) {
         true -> Modifier
         false -> {
-            val progress by animateFloatAsState(targetValue = 1.0f)
             val brush = Brush.horizontalGradient(
                 0.0f to Color(0xFFFF8000),
                 progress to Color(0xFFFF8000),
@@ -159,15 +166,16 @@ fun ProgressButton(
 fun PreviewProgressButton() {
 
     var text by remember { mutableStateOf(R.string.submit) }
-    var progress by remember { mutableStateOf(true) }
+    var progress: Float by remember { mutableStateOf(0.0F) }
 
     ProgressButton(
         text = stringResource(id = text),
         disabledText = stringResource(id = R.string.processing),
-        enabled = progress,
+        enabled = true,
+        progress = progress,
         onClick = {
             text = R.string.processing
-            progress = false
+            progress = 1.0f
         },
         modifier = Modifier.fillMaxWidth()
     )
@@ -194,8 +202,7 @@ fun RowScope.config(value: String, onValueChange: (String) -> Unit, modifier: Mo
                     expanded = expanded
                 )
             },
-            colors = ExposedDropdownMenuDefaults.textFieldColors(),
-            modifier = Modifier.menuAnchor()
+            colors = ExposedDropdownMenuDefaults.textFieldColors()
         )
         ExposedDropdownMenu(
             expanded = expanded,
