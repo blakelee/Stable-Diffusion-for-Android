@@ -110,6 +110,12 @@ class Text2ImageViewModel @Inject constructor(
         }
     }
 
+    fun interupt() {
+        viewModelScope.launch {
+            runCatching { service.interrupt() }
+        }
+    }
+
     private fun List<String>.mapToBitmap(): List<Bitmap> {
         return this.map { encodedString ->
             val strippedEncodedImage = encodedString

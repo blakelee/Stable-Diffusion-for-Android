@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
@@ -77,9 +78,18 @@ fun BottomBar(navController: NavHostController, viewModel: MainViewModel) {
                 tween(duration, 0, LinearEasing)
             )
             val brush = loadingBrush(viewModel.processing, progress)
+            val focusManager = LocalFocusManager.current
+
+            val onClick: () -> Unit = when (viewModel.processing) {
+                true -> viewModel::cancel
+                false -> fun() {
+                    focusManager.clearFocus()
+                    viewModel.submit()
+                }
+            }
 
             FloatingActionButton(
-                onClick = { if (viewModel.processing) viewModel.cancel() else viewModel.submit() },
+                onClick = onClick,
                 containerColor = Color.Transparent,
                 elevation = FloatingActionButtonDefaults.bottomAppBarFabElevation(),
                 modifier = Modifier.background(brush, FloatingActionButtonDefaults.shape)

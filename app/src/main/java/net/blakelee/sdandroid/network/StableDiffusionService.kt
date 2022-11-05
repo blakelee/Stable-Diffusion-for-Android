@@ -12,6 +12,9 @@ interface StableDiffusionService {
     @GET("sdapi/v1/progress")
     suspend fun progress(): ProgressBody
 
+    @POST("sdapi/v1/interrupt")
+    suspend fun interrupt()
+
     @POST("sdapi/v1/txt2img")
     suspend fun text2Image(@Body text2ImageBody: Text2ImageBody): Text2ImageResponse
 }

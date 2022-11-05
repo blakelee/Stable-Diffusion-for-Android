@@ -8,23 +8,19 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -32,18 +28,21 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.navigation.navigate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import net.blakelee.sdandroid.AppNavGraph
 import net.blakelee.sdandroid.NavGraphs
-import net.blakelee.sdandroid.R
 import java.io.IOException
 
 @AppNavGraph(start = true)
@@ -68,117 +67,74 @@ fun Text2ImageScreen(
     ) {
         Column {
 
+            val scope = rememberCoroutineScope()
+
+            var prompt by remember {
+                mutableStateOf(TextFieldValue(state.prompt))
+            }
+
+            val onValueChange: (TextFieldValue) -> Unit = remember {
+                { prompt = it; viewModel.setPrompt(it.text) }
+            }
+
+            val focusManager = LocalFocusManager.current
+
             TextField(
-                value = state.prompt,
-                onValueChange = { viewModel.setPrompt(it) },
-                modifier = Modifier.fillMaxWidth()
+                value = prompt,
+                onValueChange = onValueChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            scope.launch(Dispatchers.Unconfined) {
+                                delay(100)
+                                prompt = prompt.copy(
+                                    selection = TextRange(0, prompt.text.length)
+                                )
+                            }
+                        }
+                    },
+                keyboardActions = KeyboardActions(
+                    onGo = {
+                        viewModel.submit()
+                        focusManager.clearFocus()
+                    }
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go)
             )
 
             Row(modifier = Modifier.padding(vertical = 8.dp)) {
                 config(
                     value = state.configuration.toString(),
                     modifier = Modifier.weight(0.5f),
-                    onValueChange = { viewModel.setConfigurationScale(it.toFloat()) }
+                    onValueChange = remember { { viewModel.setConfigurationScale(it.toFloat()) } }
+
                 )
+
                 Spacer(Modifier.width(8.dp))
+
                 steps(
                     value = state.steps.toString(),
                     modifier = Modifier.weight(0.5f),
-                    onValueChange = {
-                        viewModel.setSteps(it.filter { it.isDigit() }.toIntOrNull() ?: 0)
+                    onValueChange = remember {
+                        {
+                            viewModel.setSteps(it.filter { it.isDigit() }.toIntOrNull() ?: 0)
+                        }
                     }
                 )
             }
-
-            val focusManager = LocalFocusManager.current
-
-            ProgressButton(
-                text = stringResource(id = R.string.submit),
-                disabledText = stringResource(id = R.string.processing),
-                onClick = { focusManager.clearFocus(); viewModel.submit() },
-                enabled = !viewModel.processing,
-                progress = viewModel.progress,
-                modifier = Modifier.fillMaxWidth()
-            )
 
             state.images.forEach {
                 renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
             }
         }
 
+
         val url by state.url.collectAsState(initial = "")
         SelectionContainer(modifier = Modifier.align(Alignment.BottomCenter)) {
             Text(url)
         }
     }
-}
-
-@Composable
-fun ProgressButton(
-    text: String,
-    disabledText: String,
-    onClick: () -> Unit,
-    enabled: Boolean,
-    modifier: Modifier = Modifier,
-    progress: Float = 0F,
-) {
-
-    val duration by remember(enabled) { derivedStateOf { if (enabled) 0 else 350 } }
-    val progress by animateFloatAsState(progress, tween(duration, 0, LinearEasing))
-
-    val maybeBackground: Modifier = when (enabled) {
-        true -> Modifier
-        false -> {
-            val brush = Brush.horizontalGradient(
-                0.0f to Color(0xFFFF8000),
-                progress to Color(0xFFFF8000),
-                progress to MaterialTheme.colorScheme.primary,
-                1.0f to MaterialTheme.colorScheme.primary,
-                startX = 0f,
-                endX = Float.POSITIVE_INFINITY
-            )
-
-            Modifier.background(brush = brush)
-        }
-    }
-
-    Button(
-        contentPadding = PaddingValues(),
-        onClick = onClick,
-        modifier = modifier,
-        enabled = enabled
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = ButtonDefaults.MinHeight)
-                .then(maybeBackground)
-                .padding(ButtonDefaults.ContentPadding),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = if (enabled) text else disabledText)
-        }
-    }
-}
-
-@Preview
-@Composable
-fun PreviewProgressButton() {
-
-    var text by remember { mutableStateOf(R.string.submit) }
-    var progress: Float by remember { mutableStateOf(0.0F) }
-
-    ProgressButton(
-        text = stringResource(id = text),
-        disabledText = stringResource(id = R.string.processing),
-        enabled = true,
-        progress = progress,
-        onClick = {
-            text = R.string.processing
-            progress = 1.0f
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
 }
 
 @Composable
@@ -229,7 +185,7 @@ fun RowScope.config(value: String, onValueChange: (String) -> Unit, modifier: Mo
 fun RowScope.steps(value: String, onValueChange: (String) -> Unit, modifier: Modifier) {
     TextField(
         value = value,
-        onValueChange = { onValueChange(it) },
+        onValueChange = onValueChange,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = modifier,
         label = { Text("Steps") }
