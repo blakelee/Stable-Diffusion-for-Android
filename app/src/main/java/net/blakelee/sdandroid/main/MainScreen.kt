@@ -53,5 +53,4 @@ fun MainScreen(activity: MainActivity, viewModel: MainViewModel = hiltViewModel(
             }
         )
     }
-
 }

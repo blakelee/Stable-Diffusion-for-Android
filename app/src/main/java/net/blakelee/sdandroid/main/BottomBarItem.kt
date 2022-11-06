@@ -13,5 +13,5 @@ enum class BottomBarItem(
     @StringRes val label: Int
 ) {
     Text2Image(Text2ImageScreenDestination, R.drawable.ic_text, R.string.text),
-    Image2Image(Image2ImageScreenDestination, R.drawable.ic_text, R.string.text)
+    Image2Image(Image2ImageScreenDestination, R.drawable.ic_image, R.string.text)
 }

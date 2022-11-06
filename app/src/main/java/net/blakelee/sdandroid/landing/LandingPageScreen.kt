@@ -24,12 +24,8 @@ fun LandingPageScreen(
     subdomain: String? = null
 ) {
 
-    val isLoggedIn by viewModel.isLoggedIn.collectAsState(false)
-
-    if (isLoggedIn) {
-        navController.navigate(NavGraphs.app)
-    }
-
+    // Auto navigate if possible
+    if (viewModel.isLoggedIn) navController.navigate(NavGraphs.app)
     subdomain?.let(viewModel::login)
 
     Column(

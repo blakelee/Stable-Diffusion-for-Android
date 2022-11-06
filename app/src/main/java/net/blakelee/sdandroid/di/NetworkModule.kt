@@ -5,8 +5,8 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.blakelee.sdandroid.AppState
 import net.blakelee.sdandroid.network.StableDiffusionService
-import net.blakelee.sdandroid.persistence.Config
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -29,7 +29,7 @@ class NetworkModule {
     }
 
     @Provides
-    fun provideOkHttpClient(config: Config): OkHttpClient {
+    fun provideOkHttpClient(appState: AppState): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val request = chain.request()
@@ -37,8 +37,8 @@ class NetworkModule {
                     request.newBuilder()
                         .url(
                             request.url
-                            .toString()
-                            .replace(LOCALHOST, Uri.parse(config.url).toString())
+                                .toString()
+                                .replace(LOCALHOST, Uri.parse(appState.url).toString())
                         )
                         .build()
                 )

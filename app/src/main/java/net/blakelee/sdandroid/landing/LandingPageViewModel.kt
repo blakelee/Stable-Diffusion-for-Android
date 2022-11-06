@@ -1,20 +1,21 @@
 package net.blakelee.sdandroid.landing
 
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import net.blakelee.sdandroid.persistence.Config
+import net.blakelee.sdandroid.AppState
 import javax.inject.Inject
 
 @HiltViewModel
 class LandingPageViewModel @Inject constructor(
-    private val config: Config,
-    repository: LoginRepository
-) : ViewModel() {
+    repository: LoginRepository,
+    appState: AppState
+) : ViewModel(), AppState by appState {
 
-    val isLoggedIn = config.urlFlow.map { it.isNotBlank() }
+    val isLoggedIn by derivedStateOf { url.isNotBlank() }
 
     fun login(url: String) {
         val url = when (url.any { !it.isLetterOrDigit() }) {
@@ -23,7 +24,7 @@ class LandingPageViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            config.setUrl(url)
+            this@LandingPageViewModel.url = url
         }
     }
 }

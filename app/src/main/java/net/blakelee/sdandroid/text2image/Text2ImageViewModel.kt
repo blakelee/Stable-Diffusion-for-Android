@@ -7,27 +7,27 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import net.blakelee.sdandroid.di.AppState
+import net.blakelee.sdandroid.AppState
 import net.blakelee.sdandroid.network.StableDiffusionService
 import net.blakelee.sdandroid.network.Text2ImageBody
-import net.blakelee.sdandroid.persistence.Config
 import retrofit2.HttpException
 import javax.inject.Inject
 
 @HiltViewModel
 class Text2ImageViewModel @Inject constructor(
     private val service: StableDiffusionService,
-    private val appConfig: Config,
-    appState: AppState
-) : ViewModel(), AppState by appState {
+    appState: AppState,
+    config: Text2ImageConfig
+) : ViewModel(), AppState by appState, Text2ImageConfig by config {
 
     init {
         onCancel = {
@@ -41,28 +41,31 @@ class Text2ImageViewModel @Inject constructor(
         }
     }
 
-    data class State(
-        val prompt: String = "",
-        val configuration: Float = 7f,
-        val steps: Int = 20,
-        val images: List<Bitmap> = emptyList(),
-        val url: Flow<String>
-    )
-
-
-    var state by mutableStateOf(State(url = appConfig.urlFlow))
-        private set
+    var prompt: TextFieldValue by mutableStateOf(TextFieldValue(prompts.firstOrNull() ?: ""))
+    var images: List<Bitmap> by mutableStateOf(emptyList())
 
     fun setPrompt(prompt: String) {
-        state = state.copy(prompt = prompt)
+        this.prompt = this.prompt.copy(text = prompt, selection = TextRange(prompt.length))
     }
 
     fun setConfigurationScale(configuration: Float) {
-        state = state.copy(configuration = configuration)
+        cfgScale = configuration
     }
 
-    fun setSteps(steps: Int) {
-        state = state.copy(steps = steps)
+    fun deletePrompt(prompt: String) {
+        val prompts = (prompts as LinkedHashSet)
+        prompts.remove(prompt)
+        this.prompts = prompts
+    }
+
+    fun selectAllText() {
+        prompt = prompt.copy(
+            selection = TextRange(0, prompt.text.length)
+        )
+    }
+
+    private fun addPrompt(prompt: String) {
+        prompts = prompts + prompt
     }
 
     fun submit() {
@@ -72,10 +75,12 @@ class Text2ImageViewModel @Inject constructor(
 
                 progress()
 
-                val body = with(state) { Text2ImageBody(prompt, steps, configuration) }
+                addPrompt(prompt.text)
+
+                val body = Text2ImageBody(prompt.text, steps, cfgScale)
                 val response = service.text2Image(body)
 
-                state = state.copy(images = response.images.mapToBitmap())
+                images = response.images.mapToBitmap()
 
                 // Artificial delay to finish the animation
                 delay(350)
@@ -106,7 +111,7 @@ class Text2ImageViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            appConfig.setUrl("")
+            url = ""
         }
     }
 

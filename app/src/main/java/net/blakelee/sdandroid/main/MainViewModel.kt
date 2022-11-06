@@ -1,17 +1,18 @@
 package net.blakelee.sdandroid.main
 
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
-import net.blakelee.sdandroid.di.AppState
-import net.blakelee.sdandroid.persistence.Config
+import net.blakelee.sdandroid.AppState
 import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    config: Config,
     appState: AppState
 ) : ViewModel(), AppState by appState {
-    val isLoggedIn = config.url.isNotBlank()
+
+    val isLoggedIn by derivedStateOf { url.isNotBlank() }
 
     fun cancel() {
         onCancel()
@@ -20,5 +21,4 @@ class MainViewModel @Inject constructor(
     fun submit() {
         onProcess()
     }
-
 }

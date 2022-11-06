@@ -15,10 +15,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asImageBitmap
@@ -28,7 +31,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -43,6 +46,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.blakelee.sdandroid.AppNavGraph
 import net.blakelee.sdandroid.NavGraphs
+import net.blakelee.sdandroid.R
 import java.io.IOException
 
 @AppNavGraph(start = true)
@@ -52,8 +56,6 @@ fun Text2ImageScreen(
     navController: NavController,
     viewModel: Text2ImageViewModel = hiltViewModel()
 ) {
-
-    val state = viewModel.state
 
     BackHandler {
         viewModel.logout()
@@ -67,72 +69,135 @@ fun Text2ImageScreen(
     ) {
         Column {
 
-            val scope = rememberCoroutineScope()
-
-            var prompt by remember {
-                mutableStateOf(TextFieldValue(state.prompt))
-            }
-
-            val onValueChange: (TextFieldValue) -> Unit = remember {
-                { prompt = it; viewModel.setPrompt(it.text) }
-            }
-
-            val focusManager = LocalFocusManager.current
-
-            TextField(
-                value = prompt,
-                onValueChange = onValueChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused) {
-                            scope.launch(Dispatchers.Unconfined) {
-                                delay(100)
-                                prompt = prompt.copy(
-                                    selection = TextRange(0, prompt.text.length)
-                                )
-                            }
-                        }
-                    },
-                keyboardActions = KeyboardActions(
-                    onGo = {
-                        viewModel.submit()
-                        focusManager.clearFocus()
-                    }
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go)
+            prompt(
+                prompts = viewModel.prompts,
+                onPromptDeleted = viewModel::deletePrompt,
+                value = viewModel.prompt,
+                onValueChange = { viewModel.setPrompt(it.text) },
+                modifier = Modifier.fillMaxWidth(),
+                onSubmit = { viewModel.submit() },
+                onSelectAllText = { viewModel.selectAllText() }
             )
 
             Row(modifier = Modifier.padding(vertical = 8.dp)) {
                 config(
-                    value = state.configuration.toString(),
+                    value = viewModel.cfgScale.toString(),
                     modifier = Modifier.weight(0.5f),
                     onValueChange = remember { { viewModel.setConfigurationScale(it.toFloat()) } }
-
                 )
 
                 Spacer(Modifier.width(8.dp))
 
                 steps(
-                    value = state.steps.toString(),
+                    value = viewModel.steps.toString(),
                     modifier = Modifier.weight(0.5f),
                     onValueChange = remember {
                         {
-                            viewModel.setSteps(it.filter { it.isDigit() }.toIntOrNull() ?: 0)
+                            viewModel.steps = it.filter { it.isDigit() }.toIntOrNull() ?: 0
                         }
                     }
                 )
             }
 
-            state.images.forEach {
+            viewModel.images.forEach {
                 renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
             }
         }
 
-
-        val url by state.url.collectAsState(initial = "")
+        val url = viewModel.url
         SelectionContainer(modifier = Modifier.align(Alignment.BottomCenter)) {
             Text(url)
+        }
+    }
+}
+
+@Composable
+fun ColumnScope.prompt(
+    prompts: Set<String>,
+    onPromptDeleted: (String) -> Unit,
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    onSubmit: () -> Unit,
+    onSelectAllText: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
+
+    if (prompts.isEmpty()) {
+        expanded = false
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
+    ) {
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text("Prompt") },
+            trailingIcon = {
+                if (prompts.isNotEmpty()) {
+                    Icon(
+                        Icons.Filled.ArrowDropDown,
+                        null,
+                        Modifier
+                            .rotate(if (expanded) 180f else 0f)
+                            .menuAnchor()
+                    )
+                }
+            },
+            colors = ExposedDropdownMenuDefaults.textFieldColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    if (focusState.isFocused) {
+                        scope.launch(Dispatchers.Unconfined) {
+                            delay(100)
+                            onSelectAllText()
+                        }
+                    }
+                },
+            keyboardActions = KeyboardActions(
+                onGo = {
+                    onSubmit()
+                    focusManager.clearFocus()
+                }
+            ),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            prompts.forEach { selectionOption ->
+                DropdownMenuItem(
+                    onClick = {
+                        onValueChange(TextFieldValue(selectionOption))
+                        expanded = false
+                    },
+                    interactionSource = MutableInteractionSource(),
+                    text = {
+                        Text(text = selectionOption)
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            onPromptDeleted(selectionOption)
+                            expanded = false
+                        }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_clear),
+                                contentDescription = null,
+                            )
+                        }
+                    }
+                )
+            }
         }
     }
 }
@@ -158,7 +223,8 @@ fun RowScope.config(value: String, onValueChange: (String) -> Unit, modifier: Mo
                     expanded = expanded
                 )
             },
-            colors = ExposedDropdownMenuDefaults.textFieldColors()
+            colors = ExposedDropdownMenuDefaults.textFieldColors(),
+            modifier = Modifier.menuAnchor()
         )
         ExposedDropdownMenu(
             expanded = expanded,

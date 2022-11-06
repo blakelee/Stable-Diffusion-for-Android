@@ -4,6 +4,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
@@ -96,7 +98,13 @@ fun BottomBar(navController: NavHostController, viewModel: MainViewModel) {
             ) {
                 Icon(Icons.Filled.Add, "Localized description")
             }
-        })
+        },
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            top = 4.dp,
+            end = 4.dp
+        )
+    )
 }
 
 fun NavOptionsBuilder.popUpToTop(navController: NavController) {
