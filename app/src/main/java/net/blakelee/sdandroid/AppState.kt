@@ -16,9 +16,13 @@ class RealAppState @Inject constructor(@ApplicationContext context: Context) : A
     override var onCancel: () -> Unit = {}
     override var onProcess: () -> Unit = {}
     override var url: String by context.mutablePreferenceOf("url", "")
+    override var sampler: String by context.mutablePreferenceOf("sampler", "Euler a")
+    override var model: String by context.mutablePreferenceOf("sd_model", "")
 }
 
 interface AppState {
+    var sampler: String
+    var model: String
     var url: String
     var processing: Boolean
     var progress: Float

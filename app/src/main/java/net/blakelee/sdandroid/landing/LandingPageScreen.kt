@@ -7,25 +7,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
 import com.ramcosta.composedestinations.annotation.DeepLink
 import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.navigation.navigate
 import net.blakelee.sdandroid.LoginNavGraph
-import net.blakelee.sdandroid.NavGraphs
 import net.blakelee.sdandroid.ui.theme.padding
 
 @LoginNavGraph(start = true)
 @Destination(deepLinks = [DeepLink(uriPattern = "https://{subdomain}.gradio.app")])
 @Composable
 fun LandingPageScreen(
-    navController: NavController,
     viewModel: LandingPageViewModel = hiltViewModel(),
     subdomain: String? = null
 ) {
 
-    // Auto navigate if possible
-    if (viewModel.isLoggedIn) navController.navigate(NavGraphs.app)
     subdomain?.let(viewModel::login)
 
     Column(

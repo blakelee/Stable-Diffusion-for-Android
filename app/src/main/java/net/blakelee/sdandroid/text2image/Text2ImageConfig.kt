@@ -13,8 +13,9 @@ private const val CFG_SCALE = "t2i_cfg_scale"
 private const val STEPS = "t2i_steps"
 
 @Singleton
-class RealText2ImageConfig @Inject constructor(@ApplicationContext context: Context) :
-    Text2ImageConfig {
+class RealText2ImageConfig @Inject constructor(
+    @ApplicationContext context: Context
+) : Text2ImageConfig {
     override var prompts: Set<String> by context.mutablePreferenceOf(
         PROMPTS,
         LinkedHashSet<String>()

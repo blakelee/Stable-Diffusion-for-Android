@@ -7,45 +7,31 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.blakelee.sdandroid.AppState
-import net.blakelee.sdandroid.network.StableDiffusionService
-import net.blakelee.sdandroid.network.Text2ImageBody
+import net.blakelee.sdandroid.network.StableDiffusionRepository
 import retrofit2.HttpException
 import javax.inject.Inject
 
 @HiltViewModel
 class Text2ImageViewModel @Inject constructor(
-    private val service: StableDiffusionService,
+    private val repository: StableDiffusionRepository,
     appState: AppState,
     config: Text2ImageConfig
 ) : ViewModel(), AppState by appState, Text2ImageConfig by config {
 
-    init {
-        onCancel = {
-            viewModelScope.cancel()
-            processing = false
-            progress = 0f
-        }
+    var prompt: String = prompts.firstOrNull() ?: ""
 
-        onProcess = {
-            submit()
-        }
-    }
-
-    var prompt: TextFieldValue by mutableStateOf(TextFieldValue(prompts.firstOrNull() ?: ""))
     var images: List<Bitmap> by mutableStateOf(emptyList())
 
-    fun setPrompt(prompt: String) {
-        this.prompt = this.prompt.copy(text = prompt, selection = TextRange(prompt.length))
+    fun init() {
+        onCancel = ::interrupt
+        onProcess = ::submit
     }
 
     fun setConfigurationScale(configuration: Float) {
@@ -56,12 +42,6 @@ class Text2ImageViewModel @Inject constructor(
         val prompts = (prompts as LinkedHashSet)
         prompts.remove(prompt)
         this.prompts = prompts
-    }
-
-    fun selectAllText() {
-        prompt = prompt.copy(
-            selection = TextRange(0, prompt.text.length)
-        )
     }
 
     private fun addPrompt(prompt: String) {
@@ -75,11 +55,9 @@ class Text2ImageViewModel @Inject constructor(
 
                 progress()
 
-                addPrompt(prompt.text)
+                addPrompt(prompt)
 
-                val body = Text2ImageBody(prompt.text, steps, cfgScale)
-                val response = service.text2Image(body)
-
+                val response = repository.text2Image(prompt, cfgScale, steps)
                 images = response.images.mapToBitmap()
 
                 // Artificial delay to finish the animation
@@ -99,7 +77,7 @@ class Text2ImageViewModel @Inject constructor(
                 var progress: Float
                 var hasLoaded = false
                 do {
-                    val serverProgress = service.progress().progress
+                    val serverProgress = repository.progress().progress
                     progress = if (serverProgress == 0f && hasLoaded) 1f else serverProgress
                     hasLoaded = true
                     this@Text2ImageViewModel.progress = progress
@@ -109,15 +87,9 @@ class Text2ImageViewModel @Inject constructor(
         }
     }
 
-    fun logout() {
+    fun interrupt() {
         viewModelScope.launch {
-            url = ""
-        }
-    }
-
-    fun interupt() {
-        viewModelScope.launch {
-            runCatching { service.interrupt() }
+            runCatching { repository.interrupt() }
         }
     }
 

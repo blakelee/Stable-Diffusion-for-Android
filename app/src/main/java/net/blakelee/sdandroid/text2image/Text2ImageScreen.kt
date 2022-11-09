@@ -7,19 +7,16 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.onFocusChanged
@@ -32,81 +29,62 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
 import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.navigation.navigate
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.blakelee.sdandroid.AppNavGraph
-import net.blakelee.sdandroid.NavGraphs
 import net.blakelee.sdandroid.R
 import java.io.IOException
 
 @AppNavGraph(start = true)
 @Destination
 @Composable
-fun Text2ImageScreen(
-    navController: NavController,
-    viewModel: Text2ImageViewModel = hiltViewModel()
-) {
+fun Text2ImageScreen(viewModel: Text2ImageViewModel) {
 
-    BackHandler {
-        viewModel.logout()
-        navController.navigate(NavGraphs.login)
+    LaunchedEffect(Unit) {
+        viewModel.init()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(8.dp)
-    ) {
-        Column {
+    Column(modifier = Modifier.padding(8.dp)) {
 
-            prompt(
-                prompts = viewModel.prompts,
-                onPromptDeleted = viewModel::deletePrompt,
-                value = viewModel.prompt,
-                onValueChange = { viewModel.setPrompt(it.text) },
-                modifier = Modifier.fillMaxWidth(),
-                onSubmit = { viewModel.submit() },
-                onSelectAllText = { viewModel.selectAllText() }
+        prompt(
+            prompts = viewModel.prompts,
+            onPromptDeleted = viewModel::deletePrompt,
+            value = viewModel.prompt,
+            onValueChange = viewModel::prompt::set,
+            modifier = Modifier.fillMaxWidth(),
+            onSubmit = viewModel::submit,
+        )
+
+        Row(modifier = Modifier.padding(vertical = 8.dp)) {
+            config(
+                value = viewModel.cfgScale.toString(),
+                modifier = Modifier.weight(0.5f),
+                onValueChange = remember { { viewModel.setConfigurationScale(it.toFloat()) } }
             )
 
-            Row(modifier = Modifier.padding(vertical = 8.dp)) {
-                config(
-                    value = viewModel.cfgScale.toString(),
-                    modifier = Modifier.weight(0.5f),
-                    onValueChange = remember { { viewModel.setConfigurationScale(it.toFloat()) } }
-                )
+            Spacer(Modifier.width(8.dp))
 
-                Spacer(Modifier.width(8.dp))
-
-                steps(
-                    value = viewModel.steps.toString(),
-                    modifier = Modifier.weight(0.5f),
-                    onValueChange = remember {
-                        {
-                            viewModel.steps = it.filter { it.isDigit() }.toIntOrNull() ?: 0
-                        }
+            steps(
+                value = viewModel.steps.toString(),
+                modifier = Modifier.weight(0.5f),
+                onValueChange = remember {
+                    {
+                        viewModel.steps = it.filter { it.isDigit() }.toIntOrNull() ?: 0
                     }
-                )
-            }
-
-            viewModel.images.forEach {
-                renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
-            }
+                },
+                onSubmit = viewModel::submit
+            )
         }
 
-        val url = viewModel.url
-        SelectionContainer(modifier = Modifier.align(Alignment.BottomCenter)) {
-            Text(url)
+        viewModel.images.forEach {
+            renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -115,15 +93,16 @@ fun Text2ImageScreen(
 fun ColumnScope.prompt(
     prompts: Set<String>,
     onPromptDeleted: (String) -> Unit,
-    value: TextFieldValue,
-    onValueChange: (TextFieldValue) -> Unit,
+    value: String,
+    onValueChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    onSelectAllText: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
+
+    var text by remember { mutableStateOf(TextFieldValue(value)) }
 
     if (prompts.isEmpty()) {
         expanded = false
@@ -135,8 +114,8 @@ fun ColumnScope.prompt(
         modifier = modifier
     ) {
         TextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = text,
+            onValueChange = { onValueChange(it.text); text = it },
             label = { Text("Prompt") },
             trailingIcon = {
                 if (prompts.isNotEmpty()) {
@@ -154,9 +133,8 @@ fun ColumnScope.prompt(
                 .fillMaxWidth()
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
-                        scope.launch(Dispatchers.Unconfined) {
-                            delay(100)
-                            onSelectAllText()
+                        scope.launch(Dispatchers.Main) {
+                            text = text.copy(selection = TextRange(0, text.text.length))
                         }
                     }
                 },
@@ -178,7 +156,8 @@ fun ColumnScope.prompt(
             prompts.forEach { selectionOption ->
                 DropdownMenuItem(
                     onClick = {
-                        onValueChange(TextFieldValue(selectionOption))
+                        text = text.copy(selectionOption)
+                        onValueChange(selectionOption)
                         expanded = false
                     },
                     interactionSource = MutableInteractionSource(),
@@ -248,11 +227,20 @@ fun RowScope.config(value: String, onValueChange: (String) -> Unit, modifier: Mo
 }
 
 @Composable
-fun RowScope.steps(value: String, onValueChange: (String) -> Unit, modifier: Modifier) {
+fun RowScope.steps(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     TextField(
         value = value,
         onValueChange = onValueChange,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Go
+        ),
+        keyboardActions = KeyboardActions(onGo = { onSubmit() }),
         modifier = modifier,
         label = { Text("Steps") }
     )
