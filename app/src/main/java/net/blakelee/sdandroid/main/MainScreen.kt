@@ -14,6 +14,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
 import com.ramcosta.composedestinations.DestinationsNavHost
 import com.ramcosta.composedestinations.navigation.dependency
+import com.ramcosta.composedestinations.navigation.navigate
+import com.ramcosta.composedestinations.navigation.popUpTo
 import com.ramcosta.composedestinations.utils.allDestinations
 import com.ramcosta.composedestinations.utils.currentDestinationAsState
 import net.blakelee.sdandroid.MainActivity
@@ -28,9 +30,13 @@ fun MainScreen(activity: MainActivity, viewModel: MainViewModel = hiltViewModel(
     val navController = rememberNavController()
     val currentDestination = navController.currentDestinationAsState().value ?: NavGraphs.login
 
-    BackHandler {
-        if (currentDestination in NavGraphs.app.allDestinations) {
-            viewModel.logout()
+    BackHandler(currentDestination in NavGraphs.app.allDestinations) {
+        viewModel.logout()
+    }
+
+    if (viewModel.isLoggedIn && currentDestination in NavGraphs.login.allDestinations) {
+        navController.navigate(NavGraphs.app) {
+            popUpTo(NavGraphs.app)
         }
     }
 
@@ -56,7 +62,13 @@ fun MainScreen(activity: MainActivity, viewModel: MainViewModel = hiltViewModel(
             },
             dependenciesContainerBuilder = {
                 dependency(hiltViewModel<MainViewModel>(activity))
-                dependency(hiltViewModel<SettingsViewModel>(activity))
+
+                dependency(NavGraphs.app) {
+                    val parentEntry = remember(navBackStackEntry) {
+                        navController.getBackStackEntry(NavGraphs.app.route)
+                    }
+                    hiltViewModel<SettingsViewModel>(parentEntry)
+                }
 
                 dependency(NavGraphs.app) {
                     val parentEntry = remember(navBackStackEntry) {

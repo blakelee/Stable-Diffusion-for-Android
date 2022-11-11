@@ -1,9 +1,7 @@
 package net.blakelee.sdandroid.landing
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.launch
 import net.blakelee.sdandroid.AppState
 import javax.inject.Inject
 
@@ -18,8 +16,6 @@ class LandingPageViewModel @Inject constructor(
             false -> "https://$url.gradio.app"
         }
 
-        viewModelScope.launch {
-            this@LandingPageViewModel.url = url
-        }
+        this@LandingPageViewModel.url = url
     }
 }
