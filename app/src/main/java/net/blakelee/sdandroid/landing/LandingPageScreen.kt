@@ -6,44 +6,41 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.ramcosta.composedestinations.annotation.DeepLink
 import com.ramcosta.composedestinations.annotation.Destination
+import com.squareup.workflow1.ui.ViewEnvironment
+import com.squareup.workflow1.ui.compose.ComposeScreen
 import net.blakelee.sdandroid.LoginNavGraph
 import net.blakelee.sdandroid.ui.theme.padding
 
-@LoginNavGraph(start = true)
-@Destination(deepLinks = [DeepLink(uriPattern = "https://{subdomain}.gradio.app")])
-@Composable
-fun LandingPageScreen(
-    viewModel: LandingPageViewModel = hiltViewModel(),
-    subdomain: String? = null
-) {
+data class LandingPageScreen(
+    val onLogin: (String) -> Unit
+) : ComposeScreen {
 
-    subdomain?.let(viewModel::login)
+    @Composable
+    override fun Content(viewEnvironment: ViewEnvironment) {
+        Column(
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(padding)
+        ) {
+            var url by remember { mutableStateOf("") }
+            PrefilledUrlTextField(
+                value = url,
+                onValueChange = { value -> url = value },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-    Column(
-        verticalArrangement = Arrangement.Center,
-        modifier = Modifier.padding(padding)
-    ) {
-        var url by remember { mutableStateOf("") }
-        PrefilledUrlTextField(
-            value = url,
-            onValueChange = { value -> url = value },
-            modifier = Modifier.fillMaxWidth()
-        )
+            Spacer(Modifier.size(padding))
 
-        Spacer(Modifier.size(padding))
+            Button(
+                onClick = { onLogin(url) },
+                modifier = Modifier.fillMaxWidth(),
+                content = {
+                    Text("Login")
+                }
+            )
+        }
 
-        Button(
-            onClick = { viewModel.login(url) },
-            modifier = Modifier.fillMaxWidth(),
-            content = {
-                Text("Login")
-            }
-        )
     }
-
 }
 
 @Composable
@@ -85,4 +82,10 @@ fun PrefilledUrlTextField(
         trailingIcon = trailing,
         singleLine = true
     )
+}
+
+@LoginNavGraph(start = true)
+@Destination
+@Composable
+fun Start() {
 }
