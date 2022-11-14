@@ -1,23 +1,22 @@
 package net.blakelee.sdandroid.landing
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
+import net.blakelee.sdandroid.AppDataStore
 import net.blakelee.sdandroid.network.StableDiffusionService
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class LoginRepository @Inject constructor(private val service: StableDiffusionService) {
+class LoginRepository @Inject constructor(
+    private val service: StableDiffusionService,
+    private val dataStore: AppDataStore
+) {
 
     suspend fun isLoggedIn() = service.isLoggedIn()
 
-    private val _url: MutableStateFlow<String> = MutableStateFlow("")
-    val url = _url.asSharedFlow()
+    val url = dataStore.url
 
-    val isLoggedIn = _url.map { url ->
-        url.isNotBlank()
-    }
+    val isLoggedIn = url.map { url -> url.isNotBlank() }
 
     fun login(url: String) {
         if (url.isBlank()) return
@@ -27,10 +26,10 @@ class LoginRepository @Inject constructor(private val service: StableDiffusionSe
             false -> "https://$url.gradio.app"
         }
 
-        _url.tryEmit(url)
+        dataStore.setUrl(url)
     }
 
     fun logout() {
-        _url.tryEmit("")
+        dataStore.setUrl("")
     }
 }
