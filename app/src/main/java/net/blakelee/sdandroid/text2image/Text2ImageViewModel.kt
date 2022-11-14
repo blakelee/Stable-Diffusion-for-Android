@@ -4,21 +4,20 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import net.blakelee.sdandroid.AppState
 import net.blakelee.sdandroid.network.StableDiffusionRepository
 import retrofit2.HttpException
 import javax.inject.Inject
+import javax.inject.Singleton
 
-@HiltViewModel
+//@HiltViewModel
+@Singleton
 class Text2ImageViewModel @Inject constructor(
     private val repository: StableDiffusionRepository,
     appState: AppState,
@@ -27,7 +26,7 @@ class Text2ImageViewModel @Inject constructor(
 
     var prompt: String = prompts.firstOrNull() ?: ""
 
-    var images: List<Bitmap> by mutableStateOf(emptyList())
+    val images = MutableStateFlow(emptyList<Bitmap>())
 
     fun init() {
         onCancel = ::interrupt
@@ -55,10 +54,10 @@ class Text2ImageViewModel @Inject constructor(
 
                 progress()
 
-                addPrompt(prompt)
+                addPrompt("test prompt")
 
-                val response = repository.text2Image(prompt, cfgScale, steps)
-                images = response.images.mapToBitmap()
+                val response = repository.text2Image("test prompt", cfgScale, steps)
+                images.emit(response.images.mapToBitmap())
 
                 // Artificial delay to finish the animation
                 delay(350)

@@ -41,13 +41,8 @@ class RootWorkflow @Inject constructor(
                 }
             )
             State.LoggedIn -> provider(context).renderChild(
-                LoginWorkflow::class.java,
-                props = Unit,
-                handler = { output: Boolean ->
-                    action {
-                        state = nextState(output)
-                    }
-                }
+                PrimaryWorkflow::class.java,
+                props = Unit
             )
         }
 

@@ -12,11 +12,7 @@ import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
-import com.ramcosta.composedestinations.annotation.Destination
-import net.blakelee.sdandroid.AppNavGraph
 
-@AppNavGraph
-@Destination
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel) {
     Column(Modifier.padding(8.dp)) {

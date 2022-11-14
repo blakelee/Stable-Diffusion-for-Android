@@ -35,56 +35,60 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import com.ramcosta.composedestinations.annotation.Destination
+import com.squareup.workflow1.ui.ViewEnvironment
+import com.squareup.workflow1.ui.compose.ComposeScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import net.blakelee.sdandroid.AppNavGraph
 import net.blakelee.sdandroid.R
+import net.blakelee.sdandroid.ui.theme.padding
 import java.io.IOException
 
-@AppNavGraph(start = true)
-@Destination
-@Composable
-fun Text2ImageScreen(viewModel: Text2ImageViewModel) {
+class Text2ImageScreen(
+    val prompt: String,
+    val onPromptChanged: (String) -> Unit,
+    val prompts: Set<String>,
+    val onPromptDeleted: (String) -> Unit,
+    val onSubmit: () -> Unit,
+    val cfgScale: String,
+    val onCfgScaleChanged: (String) -> Unit,
+    val steps: String,
+    val onStepsChanged: (String) -> Unit,
+    val images: List<Bitmap>
+) : ComposeScreen {
 
-    LaunchedEffect(Unit) {
-        viewModel.init()
-    }
+    @Composable
+    override fun Content(viewEnvironment: ViewEnvironment) {
+        Column(modifier = Modifier.padding(padding)) {
 
-    Column(modifier = Modifier.padding(8.dp)) {
-
-        prompt(
-            prompts = viewModel.prompts,
-            onPromptDeleted = viewModel::deletePrompt,
-            value = viewModel.prompt,
-            onValueChange = viewModel::prompt::set,
-            modifier = Modifier.fillMaxWidth(),
-            onSubmit = viewModel::submit,
-        )
-
-        Row(modifier = Modifier.padding(vertical = 8.dp)) {
-            config(
-                value = viewModel.cfgScale.toString(),
-                modifier = Modifier.weight(0.5f),
-                onValueChange = remember { { viewModel.setConfigurationScale(it.toFloat()) } }
+            prompt(
+                prompts = prompts,
+                onPromptDeleted = onPromptDeleted,
+                value = prompt,
+                onValueChange = onPromptChanged,
+                modifier = Modifier.fillMaxWidth(),
+                onSubmit = onSubmit
             )
 
-            Spacer(Modifier.width(8.dp))
+            Row(modifier = Modifier.padding(vertical = 8.dp)) {
+                config(
+                    value = cfgScale,
+                    modifier = Modifier.weight(0.5f),
+                    onValueChange = { onCfgScaleChanged(it) }
+                )
 
-            steps(
-                value = viewModel.steps.toString(),
-                modifier = Modifier.weight(0.5f),
-                onValueChange = remember {
-                    {
-                        viewModel.steps = it.filter { it.isDigit() }.toIntOrNull() ?: 0
-                    }
-                },
-                onSubmit = viewModel::submit
-            )
-        }
+                Spacer(Modifier.width(8.dp))
 
-        viewModel.images.forEach {
-            renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
+                steps(
+                    value = steps,
+                    modifier = Modifier.weight(0.5f),
+                    onValueChange = onStepsChanged,
+                    onSubmit = onSubmit
+                )
+            }
+
+            images.forEach {
+                renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
+            }
         }
     }
 }

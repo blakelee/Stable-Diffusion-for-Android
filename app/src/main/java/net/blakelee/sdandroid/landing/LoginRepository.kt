@@ -29,4 +29,8 @@ class LoginRepository @Inject constructor(private val service: StableDiffusionSe
 
         _url.tryEmit(url)
     }
+
+    fun logout() {
+        _url.tryEmit("")
+    }
 }

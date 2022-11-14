@@ -34,7 +34,10 @@ class MainActivity : ComponentActivity() {
                     onOutput = {}
                 )
 
-                WorkflowRendering(rendering, ViewEnvironment.EMPTY)
+                WorkflowRendering(
+                    rendering = rendering,
+                    viewEnvironment = ViewEnvironment.EMPTY
+                )
             }
         }
     }
