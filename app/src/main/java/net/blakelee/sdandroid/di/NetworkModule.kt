@@ -13,6 +13,7 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.create
+import java.util.concurrent.TimeUnit
 import javax.inject.Provider
 import javax.inject.Singleton
 
@@ -34,6 +35,7 @@ class NetworkModule {
     @Provides
     fun provideOkHttpClient(repository: Provider<LoginRepository>): OkHttpClient {
         return OkHttpClient.Builder()
+            .readTimeout(1, TimeUnit.DAYS)
             .addInterceptor { chain ->
                 val url = runBlocking { repository.get().url.first() }
 

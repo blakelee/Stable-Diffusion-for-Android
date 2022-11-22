@@ -1,23 +1,32 @@
 package net.blakelee.sdandroid.text2image
 
 import android.graphics.Bitmap
-import com.squareup.workflow1.Snapshot
-import com.squareup.workflow1.StatefulWorkflow
-import com.squareup.workflow1.action
+import com.squareup.workflow1.*
+import com.squareup.workflow1.WorkflowAction.Companion.noAction
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import dagger.multibindings.ClassKey
-import net.blakelee.sdandroid.text2image.Text2ImageWorkflow.Props
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import net.blakelee.sdandroid.text2image.Text2ImageWorkflow.State
 import javax.inject.Inject
+import javax.inject.Singleton
 
-@ClassKey(Text2ImageWorkflow::class)
-class Text2ImageWorkflow @Inject constructor() :
-    StatefulWorkflow<Props, State, Unit, ComposeScreen>() {
+@Singleton
+class Text2ImageWorkflow @Inject constructor(
+    private val cache: Text2ImageCache
+) : StatefulWorkflow<Unit, State, Unit, ComposeScreen>() {
 
-    data class Props(
-        val images: List<Bitmap>,
-        val onSubmit: () -> Unit
+    private val stateFlow: Flow<State> = combine(
+        cache.prompt,
+        cache.prompts,
+        cache.cfgScale,
+        cache.steps,
+        cache.images,
+        ::State
     )
+
+    private val updateState: MutableStateFlow<suspend () -> Unit> = MutableStateFlow {}
 
     data class State(
         val prompt: String = "",
@@ -27,38 +36,55 @@ class Text2ImageWorkflow @Inject constructor() :
         val images: List<Bitmap> = emptyList()
     )
 
-    override fun initialState(props: Props, snapshot: Snapshot?): State =
-        State(images = props.images)
+    override fun initialState(props: Unit, snapshot: Snapshot?): State = State()
 
     override fun render(
-        renderProps: Props,
+        renderProps: Unit,
         renderState: State,
         context: RenderContext
-    ): ComposeScreen = Text2ImageScreen(
-        prompt = renderState.prompt,
-        onPromptChanged = { context.actionSink.send(prompt(it)) },
-        prompts = renderState.prompts,
-        onPromptDeleted = {},
-        onSubmit = renderProps.onSubmit,
-        cfgScale = renderState.cfgScale.toString(),
-        onCfgScaleChanged = { context.actionSink.send(cfgScale(it)) },
-        steps = renderState.steps.toString(),
-        onStepsChanged = { context.actionSink.send(steps(it)) },
-        images = renderProps.images
-    )
+    ): ComposeScreen {
 
-    val prompt = fun(prompt: String) = action {
-        state = state.copy(prompt = prompt)
+        context.runningWorker(stateFlow.asWorker(), handler = ::updateState)
+
+        context.runningWorker(updateState.map { it() }.asWorker(), handler = { noAction() })
+
+        return Text2ImageScreen(
+            prompt = renderState.prompt,
+            onPromptChanged = { setPrompt(it) },
+            prompts = renderState.prompts,
+            onPromptDeleted = {},
+            onSubmit = context.eventHandler { setOutput(Unit) },
+            cfgScale = renderState.cfgScale.toString(),
+            onCfgScaleChanged = { setCfgScale(it) },
+            steps = renderState.steps.toString(),
+            onStepsChanged = { setSteps(it) },
+            images = renderState.images
+        )
     }
 
-    val cfgScale = fun(cfgScale: String) = action {
+    private fun setPrompt(prompt: String) {
+        updateState.tryEmit {
+            cache.setPrompt(prompt)
+        }
+
+    }
+
+    private fun setCfgScale(cfgScale: String) {
         val cfgScaleFloat = cfgScale.toFloatOrNull() ?: 0f
-        state = state.copy(cfgScale = cfgScaleFloat)
+        updateState.tryEmit {
+            cache.setCfgScale(cfgScaleFloat)
+        }
     }
 
-    val steps = fun(steps: String) = action {
+    private fun setSteps(steps: String) {
         val stepsInt = steps.filter { it.isDigit() }.toIntOrNull() ?: 0
-        state = state.copy(steps = stepsInt)
+        updateState.tryEmit {
+            cache.setSteps(stepsInt)
+        }
+    }
+
+    private fun updateState(state: State) = action {
+        this.state = state
     }
 
     override fun snapshotState(state: State): Snapshot? = null

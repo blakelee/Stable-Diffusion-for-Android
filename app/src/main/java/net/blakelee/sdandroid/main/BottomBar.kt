@@ -57,7 +57,7 @@ data class BottomBar(
                     true -> onCancel
                     false -> fun() {
                         focusManager.clearFocus()
-                        onSubmit
+                        onSubmit()
                     }
                 }
 

@@ -12,33 +12,46 @@ import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
+import com.squareup.workflow1.ui.ViewEnvironment
+import com.squareup.workflow1.ui.compose.ComposeScreen
 
-@Composable
-fun SettingsScreen(viewModel: SettingsViewModel) {
-    Column(Modifier.padding(8.dp)) {
-        val space: @Composable () -> Unit = { Spacer(Modifier.size(8.dp)) }
+data class SettingsScreen(
+    val url: String,
+    val sampler: String,
+    val onSamplerChanged: (String) -> Unit,
+    val samplers: List<String>,
+    val model: String,
+    val models: List<String>,
+    val onModelChanged: (String) -> Unit
+) : ComposeScreen {
 
-        SelectionContainer(modifier = Modifier.align(CenterHorizontally)) {
-            Text(viewModel.url)
+    @Composable
+    override fun Content(viewEnvironment: ViewEnvironment) {
+        Column(Modifier.padding(8.dp)) {
+            val space: @Composable () -> Unit = { Spacer(Modifier.size(8.dp)) }
+
+            SelectionContainer(modifier = Modifier.align(CenterHorizontally)) {
+                Text(url)
+            }
+
+            space()
+
+            Dropdown(
+                value = sampler,
+                values = samplers,
+                onValueChange = onSamplerChanged,
+                label = "Samplers"
+            )
+
+            space()
+
+            Dropdown(
+                value = model,
+                values = models,
+                onValueChange = onModelChanged,
+                label = "Models"
+            )
         }
-
-        space()
-
-        Dropdown(
-            value = viewModel.sampler,
-            values = viewModel.samplers,
-            onValueChange = { viewModel.sampler = it },
-            label = "Samplers"
-        )
-
-        space()
-
-        Dropdown(
-            value = viewModel.model,
-            values = viewModel.models,
-            onValueChange = { viewModel.setModel(it) },
-            label = "Models"
-        )
     }
 }
 

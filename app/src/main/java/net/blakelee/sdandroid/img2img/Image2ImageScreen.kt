@@ -1,12 +1,13 @@
 package net.blakelee.sdandroid.img2img
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import com.squareup.workflow1.ui.ViewEnvironment
+import com.squareup.workflow1.ui.compose.ComposeScreen
 
-@Composable
-fun Image2ImageScreen(viewModel: Image2ImageViewModel) {
+object Image2ImageScreen : ComposeScreen {
 
-    LaunchedEffect(Unit) {
-        viewModel.init()
+    @Composable
+    override fun Content(viewEnvironment: ViewEnvironment) {
+
     }
 }

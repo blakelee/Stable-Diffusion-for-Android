@@ -1,39 +1,77 @@
 package net.blakelee.sdandroid
 
-import android.graphics.Bitmap
 import com.squareup.workflow1.*
+import com.squareup.workflow1.WorkflowAction.Companion.noAction
 import com.squareup.workflow1.ui.compose.ComposeScreen
 import dagger.multibindings.ClassKey
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
 import net.blakelee.sdandroid.PrimaryWorkflow.State
+import net.blakelee.sdandroid.img2img.Image2ImageWorkflow
 import net.blakelee.sdandroid.landing.LoginRepository
 import net.blakelee.sdandroid.main.BottomBarItem
 import net.blakelee.sdandroid.main.MainScreen
-import net.blakelee.sdandroid.text2image.Text2ImageViewModel
+import net.blakelee.sdandroid.network.StableDiffusionRepository
+import net.blakelee.sdandroid.text2image.Text2ImageCache
 import net.blakelee.sdandroid.text2image.Text2ImageWorkflow
 import javax.inject.Inject
 
 @ClassKey(PrimaryWorkflow::class)
 class PrimaryWorkflow @Inject constructor(
-    private val workflowProvider: WorkflowProvider,
+    private val t2iWorkflow: Text2ImageWorkflow,
     private val loginRepository: LoginRepository,
-    private val text2Image: Text2ImageViewModel
+    private val text2Image: Text2ImageCache,
+    private val sdRepo: StableDiffusionRepository
 ) : StatefulWorkflow<Unit, State, Unit, ComposeScreen>() {
 
-    data class State(
+    private var runKey = 1
+
+    sealed class State {
+        abstract val selectedItem: BottomBarItem
+
+        data class Processing(
+            override val selectedItem: BottomBarItem,
+            val progress: Float
+        ) : State()
+
+        data class Default(override val selectedItem: BottomBarItem) : State()
+    }
+
+    enum class SubmitType {
+        Text2Image,
+        Image2Image
+    }
+
+    data class ProcessState(
         val processing: Boolean = false,
-        val progress: Float = 0f,
-        val selectedItem: BottomBarItem = BottomBarItem.Text2Image,
-        val onSubmit: () -> Unit,
-        val onCancel: () -> Unit,
-        val images: List<Bitmap> = emptyList()
+        val progress: Float = 0f
     )
 
-    val nextState = fun(selectedItem: BottomBarItem) = action {
-        state = state.copy(selectedItem = selectedItem)
+    private val submitTypeFlow =
+        MutableSharedFlow<SubmitType?>(1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    private val processFlow: Flow<ProcessState> = submitTypeFlow.flatMapMerge { type ->
+        withContext(Dispatchers.IO) {
+            when (type) {
+                SubmitType.Text2Image -> processText2Image()
+                else -> interrupt()
+            }
+        }
+    }
+
+    private suspend fun processText2Image(): Flow<ProcessState> = text2Image.submit()
+        .combine(progressFlow(), ::ProcessState)
+
+    private suspend fun interrupt(): Flow<ProcessState> = flow {
+        runCatching { sdRepo.interrupt() }
+        emit(ProcessState())
     }
 
     override fun initialState(props: Unit, snapshot: Snapshot?): State =
-        State(onSubmit = {}, onCancel = {})
+        State.Default(BottomBarItem.Text2Image)
 
     override fun render(
         renderProps: Unit,
@@ -41,20 +79,45 @@ class PrimaryWorkflow @Inject constructor(
         context: RenderContext
     ): ComposeScreen {
 
-        context.runningWorker(text2Image.images.asWorker()) {
-            action { state = state.copy(images = it) }
+        if (renderState is State.Processing) {
+            context.runningWorker(processFlow.asWorker()) {
+                action {
+                    state = when (it.processing) {
+                        true -> State.Processing(selectedItem = state.selectedItem, it.progress)
+                        false -> State.Default(selectedItem = state.selectedItem)
+                    }
+                }
+            }
+
+            context.runningSideEffect("submit") {
+                val submitType = when (renderState.selectedItem) {
+                    BottomBarItem.Text2Image -> SubmitType.Text2Image
+                    BottomBarItem.Image2Image -> SubmitType.Image2Image
+                    else -> null
+                }
+                submitTypeFlow.emit(submitType)
+            }
         }
 
-
+        if (renderState is State.Default) {
+            context.runningSideEffect("cancel") { submitTypeFlow.emit(null) }
+        }
 
         return MainScreen(
-            onBack = { loginRepository.logout() },
-            onCancel = {},
-            onSubmit = renderState.onSubmit,
-            progress = renderState.progress,
-            processing = renderState.processing,
+            onBack = loginRepository::logout,
+            onCancel = context.eventHandler { state = State.Default(state.selectedItem) },
+            onSubmit = context.eventHandler { state = State.Processing(state.selectedItem, 0f) },
+            progress = (renderState as? State.Processing)?.progress ?: 0f,
+            processing = renderState is State.Processing,
             selectedItem = renderState.selectedItem,
-            onItemSelected = { selectedItem -> context.actionSink.send(nextState(selectedItem)) },
+            onItemSelected = { item ->
+                context.eventHandler {
+                    state = when (val state = state) {
+                        is State.Processing -> state.copy(selectedItem = item)
+                        is State.Default -> state.copy(selectedItem = item)
+                    }
+                }()
+            },
             screen = nextState(context, renderState)
         )
     }
@@ -63,25 +126,34 @@ class PrimaryWorkflow @Inject constructor(
         context: BaseRenderContext<Unit, State, Unit>,
         state: State
     ): ComposeScreen {
-        val render = workflowProvider(context)
+
         return when (state.selectedItem) {
-            BottomBarItem.Text2Image -> {
-                val props = Text2ImageWorkflow.Props(state.images) {
-                    context.actionSink.send(submitText2Image)
-                }
-                render.renderChild(Text2ImageWorkflow::class.java, props)
+            BottomBarItem.Text2Image -> context.renderChild(t2iWorkflow, Unit) {
+                submitTypeFlow.tryEmit(SubmitType.Text2Image)
+                noAction()
+
             }
-            BottomBarItem.Image2Image -> TODO()
+            BottomBarItem.Image2Image ->
+                context.renderChild(Image2ImageWorkflow, Unit) { noAction() }
             else -> TODO()
         }
     }
 
-    private val submitText2Image = action {
-        text2Image.submit()
-        state = state.copy(
-            processing = true,
-            onCancel = text2Image::interrupt
-        )
+    private fun progressFlow(): Flow<Float> = flow {
+        runCatching {
+            emit(0f)
+
+            var progress = 0f
+            do {
+                delay(250)
+                val newProgress = runCatching { sdRepo.progress().progress }.getOrNull() ?: 0f
+                emit(newProgress)
+                progress = maxOf(newProgress, progress)
+
+            } while (newProgress >= progress)
+
+            emit(1f)
+        }
     }
 
     override fun snapshotState(state: State): Snapshot? = null

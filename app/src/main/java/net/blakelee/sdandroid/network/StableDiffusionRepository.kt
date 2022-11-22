@@ -1,17 +1,15 @@
 package net.blakelee.sdandroid.network
 
-import net.blakelee.sdandroid.AppState
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class StableDiffusionRepository @Inject constructor(
-    private val service: StableDiffusionService,
-    private val appState: AppState
+    private val service: StableDiffusionService
 ) {
 
     suspend fun text2Image(prompt: String, cfg: Float, steps: Int): Text2ImageResponse {
-        val body = Text2ImageBody(prompt, steps, cfg, appState.sampler)
+        val body = Text2ImageBody(prompt, steps, cfg, "Euler A")
         return service.text2Image(body)
     }
 
