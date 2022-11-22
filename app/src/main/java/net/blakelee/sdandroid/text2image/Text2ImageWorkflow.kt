@@ -4,10 +4,8 @@ import android.graphics.Bitmap
 import com.squareup.workflow1.*
 import com.squareup.workflow1.WorkflowAction.Companion.noAction
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.runBlocking
 import net.blakelee.sdandroid.combine
 import net.blakelee.sdandroid.settings.SettingsCache
 import net.blakelee.sdandroid.text2image.Text2ImageWorkflow.State
@@ -33,10 +31,11 @@ class Text2ImageWorkflow @Inject constructor(
 
     private val updateState: MutableStateFlow<suspend () -> Unit> = MutableStateFlow {}
 
-    sealed class Action {
-        data class UpdatePrompt(val prompt: String) : Action()
-        data class UpdateCfgScale(val cfgScale: Float) : Action()
-        data class UpdateSteps(val steps: Int) : Action()
+    data class Action(
+        private val name: String,
+        val runnable: suspend () -> Unit
+    ) {
+        val key get() = "$name+${hashCode()}"
     }
 
     data class State(
@@ -49,7 +48,9 @@ class Text2ImageWorkflow @Inject constructor(
         val action: Action? = null
     )
 
-    override fun initialState(props: Unit, snapshot: Snapshot?): State = State()
+    override fun initialState(props: Unit, snapshot: Snapshot?): State = State(
+        prompt = runBlocking { cache.prompt.first() }
+    )
 
     override fun render(
         renderProps: Unit,
@@ -61,27 +62,18 @@ class Text2ImageWorkflow @Inject constructor(
 
         context.runningWorker(updateState.map { it() }.asWorker(), handler = { noAction() })
 
-        when (renderState.action) {
-            is Action.UpdateCfgScale -> context.runningSideEffect("cfgScale") {
-                cache.setCfgScale(renderState.action.cfgScale)
+        renderState.action?.let { action ->
+            context.runningSideEffect(action.key) {
+                action.runnable()
                 context.eventHandler { state = state.copy(action = null) }
             }
-            is Action.UpdatePrompt -> context.runningSideEffect("prompt") {
-                cache.setPrompt(renderState.action.prompt)
-                context.eventHandler { state = state.copy(action = null) }
-            }
-            is Action.UpdateSteps -> context.runningSideEffect("steps") {
-                cache.setSteps(renderState.action.steps)
-                context.eventHandler { state = state.copy(action = null) }
-            }
-            else -> {}
         }
 
         return Text2ImageScreen(
             prompt = renderState.prompt,
             onPromptChanged = { context.actionSink.send(setPrompt(it)) },
             prompts = renderState.prompts,
-            onPromptDeleted = {},
+            onPromptDeleted = { context.actionSink.send(deletePrompt(it)) },
             onSubmit = context.eventHandler { setOutput(Unit) },
             cfgScale = renderState.cfgScale.toString(),
             onCfgScaleChanged = { context.actionSink.send(setCfgScale(it)) },
@@ -91,22 +83,30 @@ class Text2ImageWorkflow @Inject constructor(
         )
     }
 
-    private fun setPrompt(prompt: String) = action {
-        state = state.copy(action = Action.UpdatePrompt(prompt))
+    private fun setPrompt(prompt: String) = setAction("prompt") {
+        cache.setPrompt(prompt)
     }
 
-    private fun setCfgScale(cfgScale: String) = action {
+    private fun deletePrompt(prompt: String) = setAction("deletePrompt") {
+        cache.deletePrompt(prompt)
+    }
+
+    private fun setCfgScale(cfgScale: String) = setAction("cfgScale") {
         val cfgScaleFloat = cfgScale.toFloatOrNull() ?: 0f
-        state = state.copy(action = Action.UpdateCfgScale(cfgScaleFloat))
+        cache.setCfgScale(cfgScaleFloat)
     }
 
-    private fun setSteps(steps: String) = action {
+    private fun setSteps(steps: String) = setAction("steps") {
         val stepsInt = steps.filter { it.isDigit() }.toIntOrNull() ?: 0
-        state = state.copy(action = Action.UpdateSteps(stepsInt))
+        cache.setSteps(stepsInt)
     }
 
     private fun updateState(state: State) = action {
         this.state = state
+    }
+
+    private fun setAction(name: String, runnable: suspend () -> Unit) = action {
+        state = state.copy(action = Action(name, runnable))
     }
 
     override fun snapshotState(state: State): Snapshot? = null

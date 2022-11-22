@@ -28,15 +28,22 @@ class Text2ImageCache @Inject constructor(
             }
         }
 
-    private val workingPrompt = MutableStateFlow<String?>("")
+    private val workingPrompt = MutableStateFlow<String?>(null)
 
-    val prompt = prompts.map { it.firstOrNull() ?: "" }
-        .combine(workingPrompt) { prompts, workingPrompt ->
-            workingPrompt ?: prompts
-        }
+    val prompt: Flow<String> = prompts.combine(workingPrompt) { prompts, workingPrompt ->
+        val prompt = prompts.firstOrNull().orEmpty()
+        workingPrompt ?: prompt
+    }
 
     suspend fun setPrompt(prompt: String) {
         workingPrompt.emit(prompt)
+    }
+
+    suspend fun deletePrompt(prompt: String) {
+        val prompts = prompts.first()
+        dataStore.edit { settings ->
+            settings[PROMPTS_KEY] = prompts - prompt
+        }
     }
 
     val steps: Flow<Int> = dataStore.data
@@ -52,12 +59,12 @@ class Text2ImageCache @Inject constructor(
     suspend fun setCfgScale(cfgScale: Float) =
         dataStore.edit { settings -> settings[CFG_SCALE_KEY] = cfgScale }
 
-    private suspend fun addPrompt(prompt: String) = prompts.map { prompts ->
+    private suspend fun addPrompt(prompt: String) {
+        val prompts = prompts.first()
         dataStore.edit { settings ->
             settings[PROMPTS_KEY] = prompts + prompt
         }
     }
-
 
     suspend fun setSteps(steps: Int) = dataStore.edit { settings -> settings[STEPS_KEY] = steps }
 
@@ -71,18 +78,15 @@ class Text2ImageCache @Inject constructor(
             val prompt = prompt.first()
             addPrompt(prompt)
 
-
             val response = repository.text2Image(prompt, cfgScale, steps)
 
             images.emit(response.images.mapToBitmap())
             // Artificial delay to finish the animation
             delay(350)
 
-        }.onFailure {
-            runCatching { emit(false) }
-        }.onSuccess {
-            runCatching { emit(false) }
         }
+
+        runCatching { emit(false) }
     }
 
     private fun List<String>.mapToBitmap(): List<Bitmap> {
