@@ -15,6 +15,7 @@ import net.blakelee.sdandroid.landing.LoginRepository
 import net.blakelee.sdandroid.main.BottomBarItem
 import net.blakelee.sdandroid.main.MainScreen
 import net.blakelee.sdandroid.network.StableDiffusionRepository
+import net.blakelee.sdandroid.settings.SettingsWorkflow
 import net.blakelee.sdandroid.text2image.Text2ImageCache
 import net.blakelee.sdandroid.text2image.Text2ImageWorkflow
 import javax.inject.Inject
@@ -24,10 +25,10 @@ class PrimaryWorkflow @Inject constructor(
     private val t2iWorkflow: Text2ImageWorkflow,
     private val loginRepository: LoginRepository,
     private val text2Image: Text2ImageCache,
-    private val sdRepo: StableDiffusionRepository
+    private val sdRepo: StableDiffusionRepository,
+    private val settingsWorkflow: SettingsWorkflow
 ) : StatefulWorkflow<Unit, State, Unit, ComposeScreen>() {
 
-    private var runKey = 1
 
     sealed class State {
         abstract val selectedItem: BottomBarItem
@@ -135,7 +136,9 @@ class PrimaryWorkflow @Inject constructor(
             }
             BottomBarItem.Image2Image ->
                 context.renderChild(Image2ImageWorkflow, Unit) { noAction() }
-            else -> TODO()
+
+            BottomBarItem.Settings ->
+                context.renderChild(settingsWorkflow, Unit) { noAction() }
         }
     }
 

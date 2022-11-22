@@ -19,9 +19,9 @@ data class SettingsScreen(
     val url: String,
     val sampler: String,
     val onSamplerChanged: (String) -> Unit,
-    val samplers: List<String>,
+    val samplers: Set<String>,
     val model: String,
-    val models: List<String>,
+    val models: Set<String>,
     val onModelChanged: (String) -> Unit
 ) : ComposeScreen {
 
@@ -58,7 +58,7 @@ data class SettingsScreen(
 @Composable
 fun Dropdown(
     value: String,
-    values: List<String>,
+    values: Set<String>,
     onValueChange: (String) -> Unit,
     label: String,
     modifier: Modifier = Modifier
