@@ -68,7 +68,7 @@ class Text2ImageCache @Inject constructor(
 
     suspend fun setSteps(steps: Int) = dataStore.edit { settings -> settings[STEPS_KEY] = steps }
 
-    suspend fun submit(): Flow<Boolean> = flow {
+    suspend fun submit(sampler: String): Flow<Boolean> = flow {
         runCatching {
             emit(true)
 
@@ -78,7 +78,7 @@ class Text2ImageCache @Inject constructor(
             val prompt = prompt.first()
             addPrompt(prompt)
 
-            val response = repository.text2Image(prompt, cfgScale, steps)
+            val response = repository.text2Image(prompt, cfgScale, steps, sampler)
 
             images.emit(response.images.mapToBitmap())
             // Artificial delay to finish the animation

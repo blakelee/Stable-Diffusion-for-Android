@@ -6,6 +6,7 @@ import com.squareup.workflow1.WorkflowAction.Companion.noAction
 import com.squareup.workflow1.ui.compose.ComposeScreen
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.runBlocking
+import net.blakelee.sdandroid.Submit
 import net.blakelee.sdandroid.combine
 import net.blakelee.sdandroid.settings.SettingsCache
 import net.blakelee.sdandroid.text2image.Text2ImageWorkflow.State
@@ -15,8 +16,8 @@ import javax.inject.Singleton
 @Singleton
 class Text2ImageWorkflow @Inject constructor(
     private val cache: Text2ImageCache,
-    private val settingsCache: SettingsCache
-) : StatefulWorkflow<Unit, State, Unit, ComposeScreen>() {
+    settingsCache: SettingsCache
+) : StatefulWorkflow<Unit, State, Submit, ComposeScreen>() {
 
     private val stateFlow: Flow<State> = combine(
         cache.prompt,
@@ -74,7 +75,7 @@ class Text2ImageWorkflow @Inject constructor(
             onPromptChanged = { context.actionSink.send(setPrompt(it)) },
             prompts = renderState.prompts,
             onPromptDeleted = { context.actionSink.send(deletePrompt(it)) },
-            onSubmit = context.eventHandler { setOutput(Unit) },
+            onSubmit = context.eventHandler { setOutput(Submit) },
             cfgScale = renderState.cfgScale.toString(),
             onCfgScaleChanged = { context.actionSink.send(setCfgScale(it)) },
             steps = renderState.steps.toString(),

@@ -1,19 +1,16 @@
 package net.blakelee.sdandroid.network
 
-import kotlinx.coroutines.flow.firstOrNull
-import net.blakelee.sdandroid.settings.SettingsCache
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
 class StableDiffusionRepository @Inject constructor(
-    private val service: StableDiffusionService,
-    private val settingsCache: Provider<SettingsCache>
+    private val service: StableDiffusionService
 ) {
 
-    suspend fun text2Image(prompt: String, cfg: Float, steps: Int): Text2ImageResponse {
-        val sampler = settingsCache.get().sampler.firstOrNull() ?: "Euler a"
+    suspend fun text2Image(
+        prompt: String, cfg: Float, steps: Int, sampler: String
+    ): Text2ImageResponse {
         val body = Text2ImageBody(prompt, steps, cfg, sampler)
         return service.text2Image(body)
     }
