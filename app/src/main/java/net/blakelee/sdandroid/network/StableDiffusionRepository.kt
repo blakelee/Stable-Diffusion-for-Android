@@ -30,7 +30,7 @@ class StableDiffusionRepository @Inject constructor(
 
     suspend fun models() = service.models().map { it.title }
 
-    suspend fun model(model: String) = service.model(model)
+    suspend fun model(model: String) = service.options(mapOf("sd_model_checkpoint" to model))
 
     suspend fun samplers() = service.samplers().map { it.name }
 }

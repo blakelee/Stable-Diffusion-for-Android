@@ -33,8 +33,13 @@ class SettingsCache @Inject constructor(
         }
     ) { server, dataStore -> server.ifEmpty { dataStore } }
 
-    suspend fun setModel(model: String) = dataStore.edit { preferences ->
-        preferences[MODEL_KEY] = model
+    suspend fun setModel(model: String) {
+        val success = runCatching { repository.model(model) }.isSuccess
+        if (success) {
+            dataStore.edit { preferences ->
+                preferences[MODEL_KEY] = model
+            }
+        }
     }
 
     val models: Flow<Set<String>> = flow<Set<String>> {

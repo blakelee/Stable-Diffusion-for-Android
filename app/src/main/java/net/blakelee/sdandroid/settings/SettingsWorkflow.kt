@@ -54,12 +54,13 @@ class SettingsWorkflow @Inject constructor(
 
         when (renderState.action) {
             is Action.UpdateModel -> context.runningSideEffect("updateModel+${renderState.action.hashCode()}") {
-                context.eventHandler { state = state.copy(action = null) }
                 settingsCache.setModel(renderState.action.model)
+                context.eventHandler { state = state.copy(action = null) }
+
             }
             is Action.UpdateSampler -> context.runningSideEffect("updateSampler+${renderState.action.hashCode()}") {
-                context.eventHandler { state = state.copy(action = null) }
                 settingsCache.setSampler(renderState.action.sampler)
+                context.eventHandler { state = state.copy(action = null) }
             }
             else -> {}
         }
@@ -71,8 +72,10 @@ class SettingsWorkflow @Inject constructor(
                 context.eventHandler { state = state.copy(action = Action.UpdateSampler(it)) }()
             },
             samplers = renderState.samplers,
+            samplersEnabled = renderState.action !is Action.UpdateSampler,
             model = renderState.model,
             models = renderState.models,
+            modelsEnabled = renderState.action !is Action.UpdateModel,
             onModelChanged = {
                 context.eventHandler { state = state.copy(action = Action.UpdateModel(it)) }()
             }

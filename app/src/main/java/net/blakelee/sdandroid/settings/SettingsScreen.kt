@@ -20,8 +20,10 @@ data class SettingsScreen(
     val sampler: String,
     val onSamplerChanged: (String) -> Unit,
     val samplers: Set<String>,
+    val samplersEnabled: Boolean,
     val model: String,
     val models: Set<String>,
+    val modelsEnabled: Boolean,
     val onModelChanged: (String) -> Unit
 ) : ComposeScreen {
 
@@ -40,6 +42,7 @@ data class SettingsScreen(
                 value = sampler,
                 values = samplers,
                 onValueChange = onSamplerChanged,
+                enabled = samplersEnabled,
                 label = "Samplers"
             )
 
@@ -49,6 +52,7 @@ data class SettingsScreen(
                 value = model,
                 values = models,
                 onValueChange = onModelChanged,
+                enabled = modelsEnabled,
                 label = "Models"
             )
         }
@@ -60,6 +64,7 @@ fun Dropdown(
     value: String,
     values: Set<String>,
     onValueChange: (String) -> Unit,
+    enabled: Boolean,
     label: String,
     modifier: Modifier = Modifier
 ) {
@@ -78,6 +83,7 @@ fun Dropdown(
             readOnly = true,
             value = value,
             onValueChange = { },
+            enabled = enabled,
             label = { Text(label) },
             trailingIcon = {
                 if (values.isNotEmpty()) {
