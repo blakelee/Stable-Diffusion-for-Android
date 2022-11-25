@@ -8,5 +8,15 @@ object Image2ImageWorkflow : StatelessWorkflow<Unit, Submit, ComposeScreen>() {
     override fun render(
         renderProps: Unit,
         context: RenderContext
-    ): ComposeScreen = Image2ImageScreen
+    ): ComposeScreen = Image2ImageScreen(
+        prompt = "",
+        prompts = setOf(),
+        onPromptChanged = {},
+        onPromptDeleted = {},
+        cfgScale = "7.5",
+        onCfgScaleChanged = {},
+        steps = "25",
+        onStepsChanged = {},
+        onSubmit = {}
+    )
 }

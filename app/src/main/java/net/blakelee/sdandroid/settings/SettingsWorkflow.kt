@@ -2,6 +2,8 @@ package net.blakelee.sdandroid.settings
 
 import com.squareup.workflow1.*
 import com.squareup.workflow1.ui.compose.ComposeScreen
+import kotlinx.coroutines.flow.combine
+import net.blakelee.sdandroid.Tuple5
 import net.blakelee.sdandroid.landing.LoginRepository
 import net.blakelee.sdandroid.settings.SettingsWorkflow.State
 import javax.inject.Inject
@@ -32,24 +34,17 @@ class SettingsWorkflow @Inject constructor(
         context: RenderContext
     ): ComposeScreen {
 
-        context.runningWorker(loginRepository.url.asWorker(), "url") {
-            action { state = state.copy(url = it) }
-        }
-
-        context.runningWorker(settingsCache.model.asWorker(), "model") {
-            action { state = state.copy(model = it) }
-        }
-
-        context.runningWorker(settingsCache.models.asWorker(), "models") {
-            action { state = state.copy(models = it) }
-        }
-
-        context.runningWorker(settingsCache.sampler.asWorker(), "sampler") {
-            action { state = state.copy(sampler = it) }
-        }
-
-        context.runningWorker(settingsCache.samplers.asWorker(), "samplers") {
-            action { state = state.copy(samplers = it) }
+        context.runningWorker(state) {
+            val (url, model, models, sampler, samplers) = it
+            action {
+                state = state.copy(
+                    url = url,
+                    model = model,
+                    models = models,
+                    sampler = sampler,
+                    samplers = samplers
+                )
+            }
         }
 
         when (renderState.action) {
@@ -81,6 +76,15 @@ class SettingsWorkflow @Inject constructor(
             }
         )
     }
+
+    private val state = combine(
+        loginRepository.url,
+        settingsCache.model,
+        settingsCache.models,
+        settingsCache.sampler,
+        settingsCache.samplers,
+        ::Tuple5
+    ).asWorker()
 
     override fun initialState(props: Unit, snapshot: Snapshot?): State = State()
 

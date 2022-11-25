@@ -11,15 +11,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.*
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -27,19 +23,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import net.blakelee.sdandroid.R
+import net.blakelee.sdandroid.compose.config
+import net.blakelee.sdandroid.compose.prompt
+import net.blakelee.sdandroid.compose.steps
 import net.blakelee.sdandroid.ui.theme.padding
 import java.io.IOException
 
@@ -93,162 +83,6 @@ class Text2ImageScreen(
     }
 }
 
-@Composable
-fun ColumnScope.prompt(
-    prompts: Set<String>,
-    onPromptDeleted: (String) -> Unit,
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
-    val scope = rememberCoroutineScope()
-
-    var text by remember { mutableStateOf(TextFieldValue(value)) }
-
-    if (prompts.isEmpty()) {
-        expanded = false
-    }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = modifier
-    ) {
-        TextField(
-            value = text,
-            onValueChange = { onValueChange(it.text); text = it },
-            label = { Text("Prompt") },
-            trailingIcon = {
-                if (prompts.isNotEmpty()) {
-                    Icon(
-                        Icons.Filled.ArrowDropDown,
-                        null,
-                        Modifier
-                            .rotate(if (expanded) 180f else 0f)
-                            .menuAnchor()
-                    )
-                }
-            },
-            colors = ExposedDropdownMenuDefaults.textFieldColors(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused) {
-                        scope.launch(Dispatchers.Main) {
-                            text = text.copy(selection = TextRange(0, text.text.length))
-                        }
-                    }
-                },
-            keyboardActions = KeyboardActions(
-                onGo = {
-                    onSubmit()
-                    focusManager.clearFocus()
-                }
-            ),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go)
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = {
-                expanded = false
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            prompts.forEach { selectionOption ->
-                DropdownMenuItem(
-                    onClick = {
-                        text = text.copy(selectionOption)
-                        onValueChange(selectionOption)
-                        expanded = false
-                    },
-                    interactionSource = MutableInteractionSource(),
-                    text = {
-                        Text(text = selectionOption)
-                    },
-                    trailingIcon = {
-                        IconButton(onClick = {
-                            onPromptDeleted(selectionOption)
-                            expanded = false
-                        }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_clear),
-                                contentDescription = null,
-                            )
-                        }
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun RowScope.config(value: String, onValueChange: (String) -> Unit, modifier: Modifier) {
-    val options = (0 until 30).map { (it / 2f + 1f).toString() }
-
-    var expanded by remember { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = modifier
-    ) {
-        TextField(
-            readOnly = true,
-            value = value,
-            onValueChange = { },
-            label = { Text("Cfg") },
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(
-                    expanded = expanded
-                )
-            },
-            colors = ExposedDropdownMenuDefaults.textFieldColors(),
-            modifier = Modifier.menuAnchor()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = {
-                expanded = false
-            }
-        ) {
-            options.forEach { selectionOption ->
-                DropdownMenuItem(
-                    onClick = {
-                        onValueChange(selectionOption)
-                        expanded = false
-                    },
-                    interactionSource = MutableInteractionSource(),
-                    text = {
-                        Text(text = selectionOption)
-                    })
-            }
-        }
-    }
-}
-
-@Composable
-fun RowScope.steps(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    TextField(
-        value = value,
-        onValueChange = onValueChange,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Number,
-            imeAction = ImeAction.Go
-        ),
-        keyboardActions = KeyboardActions(onGo = { onSubmit() }),
-        modifier = modifier,
-        label = { Text("Steps") }
-    )
-}
 
 @Composable
 fun ColumnScope.renderImage(bitmap: Bitmap, modifier: Modifier = Modifier) {
