@@ -85,7 +85,7 @@ class Text2ImageScreen(
 
 
 @Composable
-fun ColumnScope.renderImage(bitmap: Bitmap, modifier: Modifier = Modifier) {
+fun renderImage(bitmap: Bitmap, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     var touchPoint: Offset by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current

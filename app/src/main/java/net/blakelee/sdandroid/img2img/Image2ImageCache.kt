@@ -8,9 +8,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class Image2ImageConfig @Inject constructor(
+class Image2ImageCache @Inject constructor(
     override val dataStore: DataStore<Preferences>
-) : SharedCache(Image2ImageConfig) {
+) : SharedCache(Image2ImageCache) {
 
     companion object : SharedPreferencesKeys {
         override val promptKey: String = "i2i_prompt_key"
