@@ -7,6 +7,7 @@ import dagger.multibindings.ClassKey
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import net.blakelee.sdandroid.PrimaryWorkflow.State
+import net.blakelee.sdandroid.img2img.Image2ImageCache
 import net.blakelee.sdandroid.img2img.Image2ImageWorkflow
 import net.blakelee.sdandroid.landing.LoginRepository
 import net.blakelee.sdandroid.main.BottomBarItem
@@ -23,8 +24,10 @@ object Submit
 @ClassKey(PrimaryWorkflow::class)
 class PrimaryWorkflow @Inject constructor(
     private val t2iWorkflow: Text2ImageWorkflow,
+    private val i2iWorkflow: Image2ImageWorkflow,
     private val loginRepository: LoginRepository,
     private val text2Image: Text2ImageCache,
+    private val image2Image: Image2ImageCache,
     private val sdRepo: StableDiffusionRepository,
     private val settingsWorkflow: SettingsWorkflow,
     private val settingsCache: SettingsCache
@@ -75,7 +78,7 @@ class PrimaryWorkflow @Inject constructor(
         return when (state.tab) {
             BottomBarItem.Text2Image -> context.renderChild(t2iWorkflow, Unit, handler = { action })
             BottomBarItem.Image2Image ->
-                context.renderChild(Image2ImageWorkflow, Unit, handler = { action })
+                context.renderChild(i2iWorkflow, Unit, handler = { action })
             BottomBarItem.Settings -> context.renderChild(settingsWorkflow, Unit) { noAction() }
         }
     }
@@ -94,7 +97,15 @@ class PrimaryWorkflow @Inject constructor(
         )
     }.asWorker()
 
-    private fun image2Image(): Worker<Float?> = flowOf<Float?>(null).asWorker()
+    private fun image2Image(): Worker<Float?> = flow {
+        val sampler = settingsCache.sampler.first()
+        emitAll(
+            image2Image.submit(sampler)
+                .combine(progressFlow()) { processing, progress ->
+                    if (processing) progress else null
+                }
+        )
+    }.asWorker()
 
     private fun progressFlow(): Flow<Float> = flow {
         runCatching {

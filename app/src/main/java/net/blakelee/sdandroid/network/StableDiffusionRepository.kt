@@ -15,6 +15,26 @@ class StableDiffusionRepository @Inject constructor(
         return service.text2Image(body)
     }
 
+    suspend fun image2Image(
+        prompt: String,
+        cfg: Float,
+        steps: Int,
+        sampler: String,
+        denoisingStrength: Float,
+        base64Bitmap: String
+    ): Image2ImageResponse {
+        val body = Image2ImageBody(
+            prompt,
+            steps,
+            cfg,
+            sampler,
+            listOf(base64Bitmap),
+            denoisingStrength
+        )
+
+        return service.image2Image(body)
+    }
+
     suspend fun progress() = service.progress()
 
     suspend fun interrupt() = service.interrupt()

@@ -40,6 +40,7 @@ data class Image2ImageScreen(
     val onDenoisingStrengthChanged: (String) -> Unit,
     val selectedImage: Bitmap? = null,
     val onImageSelected: (Bitmap) -> Unit,
+    val images: List<Bitmap> = emptyList(),
     val onSubmit: () -> Unit
 ) : ComposeScreen {
 
@@ -106,6 +107,10 @@ data class Image2ImageScreen(
                 selectedImage?.let {
                     renderImage(bitmap = it, modifier = Modifier.size(48.dp))
                 }
+            }
+
+            images.forEach {
+                renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
             }
         }
     }

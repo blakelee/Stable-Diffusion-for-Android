@@ -32,6 +32,9 @@ interface StableDiffusionService {
 
     @POST("sdapi/v1/txt2img")
     suspend fun text2Image(@Body text2ImageBody: Text2ImageBody): Text2ImageResponse
+
+    @POST("sdapi/v1/img2img")
+    suspend fun image2Image(@Body image2ImageBody: Image2ImageBody): Image2ImageResponse
 }
 
 data class OptionsBody(
@@ -50,10 +53,24 @@ data class Text2ImageBody(
     val prompt: String,
     val steps: Int = 20,
     val cfg_scale: Float = 7f,
-    val sampler: String = "Euler a"
+    val sampler_name: String = "Euler a"
 )
 
 data class Text2ImageResponse(
+    val images: List<String>
+)
+
+data class Image2ImageBody(
+    val prompt: String,
+    val steps: Int,
+    val cfg_scale: Float,
+    val sampler_name: String,
+    val init_images: List<String>,
+    val denoising_strength: Float,
+    val include_init_images: Boolean = true
+)
+
+data class Image2ImageResponse(
     val images: List<String>
 )
 
