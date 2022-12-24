@@ -2,8 +2,8 @@ package net.blakelee.sdandroid.settings
 
 import com.squareup.workflow1.*
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import kotlinx.coroutines.flow.combine
-import net.blakelee.sdandroid.Tuple5
+import net.blakelee.sdandroid.Tuple7
+import net.blakelee.sdandroid.combine
 import net.blakelee.sdandroid.landing.LoginRepository
 import net.blakelee.sdandroid.settings.SettingsWorkflow.State
 import javax.inject.Inject
@@ -17,6 +17,8 @@ class SettingsWorkflow @Inject constructor(
     sealed class Action {
         data class UpdateModel(val model: String) : Action()
         data class UpdateSampler(val sampler: String) : Action()
+        data class UpdateWidth(val width: Int) : Action()
+        data class UpdateHeight(val height: Int) : Action()
     }
 
     data class State(
@@ -25,6 +27,8 @@ class SettingsWorkflow @Inject constructor(
         val models: Set<String> = emptySet(),
         val sampler: String = "",
         val samplers: Set<String> = emptySet(),
+        val width: Int = 512,
+        val height: Int = 512,
         val action: Action? = null
     )
 
@@ -35,14 +39,16 @@ class SettingsWorkflow @Inject constructor(
     ): ComposeScreen {
 
         context.runningWorker(state) {
-            val (url, model, models, sampler, samplers) = it
+            val (url, model, models, sampler, samplers, width, height) = it
             action {
                 state = state.copy(
                     url = url,
                     model = model,
                     models = models,
                     sampler = sampler,
-                    samplers = samplers
+                    samplers = samplers,
+                    width = width,
+                    height = height
                 )
             }
         }
@@ -50,14 +56,17 @@ class SettingsWorkflow @Inject constructor(
         when (renderState.action) {
             is Action.UpdateModel -> context.runningSideEffect("updateModel+${renderState.action.hashCode()}") {
                 settingsCache.setModel(renderState.action.model)
-                context.eventHandler { state = state.copy(action = null) }
-
             }
             is Action.UpdateSampler -> context.runningSideEffect("updateSampler+${renderState.action.hashCode()}") {
                 settingsCache.setSampler(renderState.action.sampler)
-                context.eventHandler { state = state.copy(action = null) }
             }
-            else -> {}
+            is Action.UpdateWidth -> context.runningSideEffect("updateWidth+${renderState.action.hashCode()}") {
+                settingsCache.setWidth(renderState.action.width)
+            }
+            is Action.UpdateHeight -> context.runningSideEffect("updateHeight+${renderState.action.hashCode()}") {
+                settingsCache.setHeight(renderState.action.height)
+            }
+            null -> {}
         }
 
         return SettingsScreen(
@@ -73,6 +82,14 @@ class SettingsWorkflow @Inject constructor(
             modelsEnabled = renderState.action !is Action.UpdateModel,
             onModelChanged = {
                 context.eventHandler { state = state.copy(action = Action.UpdateModel(it)) }()
+            },
+            height = renderState.height,
+            width = renderState.width,
+            onHeightChanged = {
+                context.eventHandler { state = state.copy(action = Action.UpdateHeight(it)) }()
+            },
+            onWidthChanged = {
+                context.eventHandler { state = state.copy(action = Action.UpdateWidth(it)) }()
             }
         )
     }
@@ -83,7 +100,9 @@ class SettingsWorkflow @Inject constructor(
         settingsCache.models,
         settingsCache.sampler,
         settingsCache.samplers,
-        ::Tuple5
+        settingsCache.width,
+        settingsCache.height,
+        ::Tuple7
     ).asWorker()
 
     override fun initialState(props: Unit, snapshot: Snapshot?): State = State()

@@ -22,7 +22,7 @@ class Text2ImageCache @Inject constructor(
     private val workingPrompt = MutableStateFlow<String?>(null)
 
     val prompt: Flow<String> = prompts.combine(workingPrompt) { prompts, workingPrompt ->
-        val prompt = prompts.firstOrNull().orEmpty()
+        val prompt = prompts.lastOrNull().orEmpty()
         workingPrompt ?: prompt
     }
 
@@ -32,7 +32,7 @@ class Text2ImageCache @Inject constructor(
 
     val images = MutableStateFlow(emptyList<Bitmap>())
 
-    suspend fun submit(sampler: String): Flow<Boolean> = flow {
+    suspend fun submit(sampler: String, width: Int, height: Int): Flow<Boolean> = flow {
         runCatching {
             emit(true)
 
@@ -42,12 +42,11 @@ class Text2ImageCache @Inject constructor(
             val prompt = prompt.first()
             addPrompt(prompt)
 
-            val response = repository.text2Image(prompt, cfgScale, steps, sampler)
+            val response = repository.text2Image(prompt, cfgScale, steps, sampler, width, height)
 
             images.emit(response.images.mapToBitmap())
             // Artificial delay to finish the animation
             delay(350)
-
         }
 
         runCatching { emit(false) }

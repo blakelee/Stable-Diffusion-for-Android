@@ -29,7 +29,7 @@ fun <T1, T2, T3, T4, T5, T6, T7, R> combine(
     }
 }
 
-fun <T1, T2, T3, T4, T5, T6, T7, T8, T9, R> combine(
+fun <T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, R> combine(
     flow: Flow<T1>,
     flow2: Flow<T2>,
     flow3: Flow<T3>,
@@ -39,10 +39,11 @@ fun <T1, T2, T3, T4, T5, T6, T7, T8, T9, R> combine(
     flow7: Flow<T7>,
     flow8: Flow<T8>,
     flow9: Flow<T9>,
-    transform: suspend (T1, T2, T3, T4, T5, T6, T7, T8, T9) -> R
+    flow10: Flow<T10>,
+    transform: suspend (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10) -> R
 ): Flow<R> {
     val first = combine(flow, flow2, flow3, flow4, flow5, ::Tuple5)
-    val second = combine(flow6, flow7, flow8, flow9, ::Tuple4)
+    val second = combine(flow6, flow7, flow8, flow9, flow10, ::Tuple5)
 
     return combine(first, second) { first, second ->
         transform(
@@ -54,7 +55,8 @@ fun <T1, T2, T3, T4, T5, T6, T7, T8, T9, R> combine(
             second.first,
             second.second,
             second.third,
-            second.fourth
+            second.fourth,
+            second.fifth
         )
     }
 }
@@ -72,4 +74,14 @@ data class Tuple5<out A, out B, out C, out D, out E>(
     val third: C,
     val fourth: D,
     val fifth: E
+)
+
+data class Tuple7<out T1, out T2, out T3, out T4, out T5, out T6, out T7>(
+    val first: T1,
+    val second: T2,
+    val third: T3,
+    val fourth: T4,
+    val fifth: T5,
+    val sixth: T6,
+    val seventh: T7
 )

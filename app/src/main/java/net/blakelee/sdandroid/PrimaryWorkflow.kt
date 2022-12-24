@@ -90,7 +90,9 @@ class PrimaryWorkflow @Inject constructor(
 
     private fun text2Image(): Worker<Float?> = flow {
         val sampler = settingsCache.sampler.first()
-        emitAll(text2Image.submit(sampler)
+        val width = settingsCache.width.first()
+        val height = settingsCache.height.first()
+        emitAll(text2Image.submit(sampler, width, height)
             .combine(progressFlow()) { processing, progress ->
                 if (processing) progress else null
             }
@@ -99,8 +101,10 @@ class PrimaryWorkflow @Inject constructor(
 
     private fun image2Image(): Worker<Float?> = flow {
         val sampler = settingsCache.sampler.first()
+        val width = settingsCache.width.first()
+        val height = settingsCache.height.first()
         emitAll(
-            image2Image.submit(sampler)
+            image2Image.submit(sampler, width, height)
                 .combine(progressFlow()) { processing, progress ->
                     if (processing) progress else null
                 }

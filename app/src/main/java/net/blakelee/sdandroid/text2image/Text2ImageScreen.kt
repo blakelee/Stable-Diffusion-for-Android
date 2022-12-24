@@ -7,16 +7,20 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -28,10 +32,11 @@ import androidx.compose.ui.unit.dp
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
 import net.blakelee.sdandroid.compose.config
-import net.blakelee.sdandroid.compose.prompt
 import net.blakelee.sdandroid.compose.steps
 import net.blakelee.sdandroid.ui.theme.padding
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.*
 
 class Text2ImageScreen(
     val prompt: String,
@@ -50,14 +55,21 @@ class Text2ImageScreen(
     override fun Content(viewEnvironment: ViewEnvironment) {
         Column(modifier = Modifier.padding(padding)) {
 
-            prompt(
-                prompts = prompts,
-                onPromptDeleted = onPromptDeleted,
+            ElevatedTextField(
                 value = prompt,
                 onValueChange = onPromptChanged,
-                modifier = Modifier.fillMaxWidth(),
-                onSubmit = onSubmit
+                hint = "Prompt",
+                modifier = Modifier.fillMaxWidth()
             )
+
+//            prompt(
+//                prompts = prompts,
+//                onPromptDeleted = onPromptDeleted,
+//                value = prompt,
+//                onValueChange = onPromptChanged,
+//                modifier = Modifier.fillMaxWidth(),
+//                onSubmit = onSubmit
+//            )
 
             Row(modifier = Modifier.padding(vertical = 8.dp)) {
                 config(
@@ -130,7 +142,10 @@ fun renderImage(bitmap: Bitmap, modifier: Modifier = Modifier) {
 
             DropdownMenuItem(
                 onClick = {
-                    val uri = bitmap.toUri(context, displayName = "test")
+                    val date = SimpleDateFormat("YYYYMMDD-HHMM", Locale.getDefault())
+                        .format(Date())
+
+                    val uri = bitmap.toUri(context, displayName = "img-$date")
                     expanded = false
                 },
                 interactionSource = MutableInteractionSource(),
@@ -176,5 +191,47 @@ fun Bitmap.toUri(
         }
 
         throw it
+    }
+}
+
+@Composable
+fun ElevatedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    hint: String,
+    modifier: Modifier = Modifier
+) {
+
+    val cornerShape = remember { RoundedCornerShape(4.dp) }
+    var showBorder by remember { mutableStateOf(false) }
+    val borderColor by animateColorAsState(
+        targetValue = Color.Black.takeIf { showBorder } ?: Color.Transparent
+    )
+
+    Card(
+        shape = cornerShape,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        modifier = modifier
+            .border(1.dp, borderColor, cornerShape)
+            .width(IntrinsicSize.Max)
+            .onFocusChanged { focusState -> showBorder = focusState.hasFocus }
+    ) {
+        Box(modifier = Modifier.padding(16.dp)) {
+            if (value.isEmpty()) {
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.labelLarge
+                        .copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                )
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+            )
+        }
     }
 }

@@ -1,10 +1,7 @@
 package net.blakelee.sdandroid.settings
 
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.core.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
@@ -17,6 +14,8 @@ private val MODEL_KEY = stringPreferencesKey("model")
 private val MODELS_KEY = stringSetPreferencesKey("models")
 private val SAMPLER_KEY = stringPreferencesKey("sampler")
 private val SAMPLERS_KEY = stringSetPreferencesKey("samplers")
+private val HEIGHT_KEY = intPreferencesKey("height")
+private val WIDTH_KEY = intPreferencesKey("width")
 
 @Singleton
 class SettingsCache @Inject constructor(
@@ -52,13 +51,9 @@ class SettingsCache @Inject constructor(
         preferences[MODELS_KEY] ?: sortedSetOf()
     }) { server, dataStore -> server.ifEmpty { dataStore } }
 
-    val sampler: Flow<String> = dataStore.data.map { preferences ->
-        preferences[SAMPLER_KEY] ?: "Euler a"
-    }
+    val sampler: Flow<String> = get(SAMPLER_KEY, "Euler")
 
-    suspend fun setSampler(sampler: String) = dataStore.edit { preferences ->
-        preferences[SAMPLER_KEY] = sampler
-    }
+    suspend fun setSampler(sampler: String) = set(SAMPLER_KEY, sampler)
 
     val samplers: Flow<Set<String>> = flow<Set<String>> {
         runCatching {
@@ -69,4 +64,20 @@ class SettingsCache @Inject constructor(
     }.combine(dataStore.data.map { preferences ->
         preferences[SAMPLERS_KEY] ?: sortedSetOf()
     }) { server, dataStore -> server.ifEmpty { dataStore } }
+
+    val height: Flow<Int> = get(HEIGHT_KEY, 512)
+    suspend fun setHeight(height: Int) = set(HEIGHT_KEY, height)
+
+    val width: Flow<Int> = get(WIDTH_KEY, 512)
+    suspend fun setWidth(width: Int) = set(WIDTH_KEY, width)
+
+    private suspend fun <T : Any> set(key: Preferences.Key<T>, value: T) =
+        dataStore.edit { preferences ->
+            preferences[key] = value
+        }
+
+    private fun <T : Any> get(key: Preferences.Key<T>, defaultValue: T): Flow<T> =
+        dataStore.data.map { preferences ->
+            preferences[key] ?: defaultValue
+        }
 }

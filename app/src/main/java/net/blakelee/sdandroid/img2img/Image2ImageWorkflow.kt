@@ -26,6 +26,7 @@ class Image2ImageWorkflow @Inject constructor(
         cache.images,
         settingsCache.sampler,
         flowOf<Action?>(null),
+        flowOf(false),
         ::State
     )
 
@@ -47,7 +48,8 @@ class Image2ImageWorkflow @Inject constructor(
         val selectedImage: Bitmap? = null,
         val images: List<Bitmap> = emptyList(),
         val sampler: String = "Euler a",
-        val action: Action? = null
+        val action: Action? = null,
+        val isCropping: Boolean = false
     )
 
     override fun render(
@@ -55,6 +57,22 @@ class Image2ImageWorkflow @Inject constructor(
         renderState: State,
         context: RenderContext
     ): ComposeScreen {
+        if (renderState.isCropping && renderState.selectedImage != null)
+            return CropScreen(
+                bitmap = renderState.selectedImage,
+                onBackPressed = context.eventHandler {
+                    state = state.copy(isCropping = false)
+                },
+                onImageCropped = { bitmap ->
+                    context.eventHandler {
+                        state = state.copy(
+                            isCropping = false,
+                            action = setBitmapAction(bitmap)
+                        )
+                    }()
+                }
+            )
+
 
         context.runningWorker(stateFlow.asWorker(), handler = ::updateState)
 
@@ -83,10 +101,20 @@ class Image2ImageWorkflow @Inject constructor(
             onDenoisingStrengthChanged = { context.actionSink.send(setDenoisingStrength(it)) },
             selectedImage = renderState.selectedImage,
             images = renderState.images,
-            onImageSelected = {
-                context.actionSink.send(setSelectedImage(it))
+            onImageSelected = { bitmap ->
+                context.actionSink.send(action {
+                    state = state.copy(
+                        isCropping = true,
+                        selectedImage = bitmap,
+                        action = setBitmapAction(bitmap)
+                    )
+                })
             }
         )
+    }
+
+    private fun setBitmapAction(bitmap: Bitmap?): Action = Action("selectedImage") {
+        cache.setSelectedImage(bitmap)
     }
 
     private fun setPrompt(prompt: String) = setAction("prompt") {
@@ -112,12 +140,19 @@ class Image2ImageWorkflow @Inject constructor(
         cache.setDenoisingStrength(denoisingStrength)
     }
 
-    private fun setSelectedImage(bitmap: Bitmap?) = setAction("selectedImage") {
-        cache.setSelectedImage(bitmap)
-    }
-
     private fun updateState(state: State) = action {
-        this.state = state
+        this.state = this.state.copy(
+            prompt = state.prompt,
+            prompts = state.prompts,
+            cfgScale = state.cfgScale,
+            denoisingStrength = state.denoisingStrength,
+            steps = state.steps,
+            selectedImage = state.selectedImage,
+            images = state.images,
+            sampler = state.sampler,
+            action = this.state.action,
+            isCropping = this.state.isCropping
+        )
     }
 
     private fun setAction(name: String, runnable: suspend () -> Unit) = action {

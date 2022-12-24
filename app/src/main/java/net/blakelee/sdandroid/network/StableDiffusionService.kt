@@ -53,7 +53,9 @@ data class Text2ImageBody(
     val prompt: String,
     val steps: Int = 20,
     val cfg_scale: Float = 7f,
-    val sampler_name: String = "Euler a"
+    val sampler_name: String = "Euler",
+    val width: Int = 768,
+    val height: Int = 768
 )
 
 data class Text2ImageResponse(
@@ -67,7 +69,9 @@ data class Image2ImageBody(
     val sampler_name: String,
     val init_images: List<String>,
     val denoising_strength: Float,
-    val include_init_images: Boolean = true
+    val include_init_images: Boolean = true,
+    val width: Int = 768,
+    val height: Int = 768
 )
 
 data class Image2ImageResponse(

@@ -53,7 +53,7 @@ class Image2ImageCache @Inject constructor(
         preferences[floatPreferencesKey(denoisingStrengthKey)] = denoisingStrength
     }
 
-    suspend fun submit(sampler: String) = flow {
+    suspend fun submit(sampler: String, width: Int, height: Int) = flow {
         runCatching {
             emit(true)
 
@@ -80,7 +80,9 @@ class Image2ImageCache @Inject constructor(
                 steps,
                 sampler,
                 denoisingStrength,
-                base64BitmapString
+                base64BitmapString,
+                width,
+                height
             )
 
             images.emit(response.images.mapToBitmap())
