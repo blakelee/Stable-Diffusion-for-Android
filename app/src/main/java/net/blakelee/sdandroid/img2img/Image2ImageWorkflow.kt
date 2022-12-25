@@ -8,23 +8,18 @@ import kotlinx.coroutines.runBlocking
 import net.blakelee.sdandroid.Submit
 import net.blakelee.sdandroid.combine
 import net.blakelee.sdandroid.img2img.Image2ImageWorkflow.State
-import net.blakelee.sdandroid.settings.SettingsCache
 import javax.inject.Inject
 
 class Image2ImageWorkflow @Inject constructor(
-    private val cache: Image2ImageCache,
-    private val settingsCache: SettingsCache
+    private val cache: Image2ImageCache
 ) : StatefulWorkflow<Unit, State, Submit, ComposeScreen>() {
 
     private val stateFlow: Flow<State> = combine(
         cache.prompt,
         cache.prompts,
-        cache.cfgScale,
         cache.denoisingStrength,
-        cache.steps,
         cache.selectedImage,
         cache.images,
-        settingsCache.sampler,
         flowOf<Action?>(null),
         flowOf(false),
         ::State
@@ -42,12 +37,9 @@ class Image2ImageWorkflow @Inject constructor(
     data class State(
         val prompt: String = "",
         val prompts: Set<String> = setOf(),
-        val cfgScale: Float = 7f,
         val denoisingStrength: Float = 0.75f,
-        val steps: Int = 25,
         val selectedImage: Bitmap? = null,
         val images: List<Bitmap> = emptyList(),
-        val sampler: String = "Euler a",
         val action: Action? = null,
         val isCropping: Boolean = false
     )
@@ -92,10 +84,6 @@ class Image2ImageWorkflow @Inject constructor(
             prompts = renderState.prompts,
             onPromptChanged = { context.actionSink.send(setPrompt(it)) },
             onPromptDeleted = { context.actionSink.send(deletePrompt(it)) },
-            cfgScale = renderState.cfgScale.toString(),
-            onCfgScaleChanged = { context.actionSink.send(setCfgScale(it)) },
-            steps = renderState.steps.toString(),
-            onStepsChanged = { context.actionSink.send(setSteps(it)) },
             onSubmit = context.eventHandler { setOutput(Submit) },
             denoisingStrength = renderState.denoisingStrength.toString(),
             onDenoisingStrengthChanged = { context.actionSink.send(setDenoisingStrength(it)) },
@@ -125,16 +113,6 @@ class Image2ImageWorkflow @Inject constructor(
         cache.deletePrompt(prompt)
     }
 
-    private fun setCfgScale(cfgScale: String) = setAction("cfgScale") {
-        val cfgScaleFloat = cfgScale.toFloatOrNull() ?: 0f
-        cache.setCfgScale(cfgScaleFloat)
-    }
-
-    private fun setSteps(steps: String) = setAction("steps") {
-        val stepsInt = steps.filter { it.isDigit() }.toIntOrNull() ?: 0
-        cache.setSteps(stepsInt)
-    }
-
     private fun setDenoisingStrength(denoisingStrength: String) = setAction("denoisingStrength") {
         val denoisingStrength = denoisingStrength.toFloatOrNull() ?: 0f
         cache.setDenoisingStrength(denoisingStrength)
@@ -144,12 +122,9 @@ class Image2ImageWorkflow @Inject constructor(
         this.state = this.state.copy(
             prompt = state.prompt,
             prompts = state.prompts,
-            cfgScale = state.cfgScale,
             denoisingStrength = state.denoisingStrength,
-            steps = state.steps,
             selectedImage = state.selectedImage,
             images = state.images,
-            sampler = state.sampler,
             action = this.state.action,
             isCropping = this.state.isCropping
         )

@@ -53,14 +53,11 @@ class Image2ImageCache @Inject constructor(
         preferences[floatPreferencesKey(denoisingStrengthKey)] = denoisingStrength
     }
 
-    suspend fun submit(sampler: String, width: Int, height: Int) = flow {
+    suspend fun submit(sampler: String, cfg: Float, steps: Int, width: Int, height: Int) = flow {
         runCatching {
             emit(true)
 
-            val cfgScale = cfgScale.first()
-            val steps = steps.first()
-
-            val prompt = prompt.first()
+            val prompt = workingPrompt.value ?: return@runCatching
             addPrompt(prompt)
 
             val denoisingStrength = denoisingStrength.first()
@@ -76,7 +73,7 @@ class Image2ImageCache @Inject constructor(
 
             val response = repository.image2Image(
                 prompt,
-                cfgScale,
+                cfg,
                 steps,
                 sampler,
                 denoisingStrength,
@@ -108,7 +105,5 @@ class Image2ImageCache @Inject constructor(
 
     companion object : SharedPreferencesKeys {
         override val promptKey: String = "i2i_prompt_key"
-        override val stepsKey: String = "i2i_steps_key"
-        override val cfgScaleKey: String = "i2i_cfg_scale_key"
     }
 }

@@ -15,9 +15,16 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -27,12 +34,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import net.blakelee.sdandroid.compose.config
-import net.blakelee.sdandroid.compose.steps
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import net.blakelee.sdandroid.R
 import net.blakelee.sdandroid.ui.theme.padding
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -44,49 +57,25 @@ class Text2ImageScreen(
     val prompts: Set<String>,
     val onPromptDeleted: (String) -> Unit,
     val onSubmit: () -> Unit,
-    val cfgScale: String,
-    val onCfgScaleChanged: (String) -> Unit,
-    val steps: String,
-    val onStepsChanged: (String) -> Unit,
     val images: List<Bitmap>
 ) : ComposeScreen {
 
     @Composable
     override fun Content(viewEnvironment: ViewEnvironment) {
-        Column(modifier = Modifier.padding(padding)) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(padding)
+        ) {
 
             ElevatedTextField(
                 value = prompt,
                 onValueChange = onPromptChanged,
                 hint = "Prompt",
+                values = prompts,
+                onValueDeleted = onPromptDeleted,
+                onSubmit = onSubmit,
                 modifier = Modifier.fillMaxWidth()
             )
-
-//            prompt(
-//                prompts = prompts,
-//                onPromptDeleted = onPromptDeleted,
-//                value = prompt,
-//                onValueChange = onPromptChanged,
-//                modifier = Modifier.fillMaxWidth(),
-//                onSubmit = onSubmit
-//            )
-
-            Row(modifier = Modifier.padding(vertical = 8.dp)) {
-                config(
-                    value = cfgScale,
-                    modifier = Modifier.weight(0.5f),
-                    onValueChange = { onCfgScaleChanged(it) }
-                )
-
-                Spacer(Modifier.width(8.dp))
-
-                steps(
-                    value = steps,
-                    modifier = Modifier.weight(0.5f),
-                    onValueChange = onStepsChanged,
-                    onSubmit = onSubmit
-                )
-            }
 
             images.forEach {
                 renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
@@ -198,9 +187,20 @@ fun Bitmap.toUri(
 fun ElevatedTextField(
     value: String,
     onValueChange: (String) -> Unit,
+    values: Set<String>,
+    onValueDeleted: (String) -> Unit,
+    onSubmit: () -> Unit,
     hint: String,
     modifier: Modifier = Modifier
 ) {
+
+    var expanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
+
+    var text by rememberSaveable(stateSaver = TextFieldValue.Saver, key = value) {
+        mutableStateOf(TextFieldValue(value))
+    }
 
     val cornerShape = remember { RoundedCornerShape(4.dp) }
     var showBorder by remember { mutableStateOf(false) }
@@ -208,30 +208,104 @@ fun ElevatedTextField(
         targetValue = Color.Black.takeIf { showBorder } ?: Color.Transparent
     )
 
-    Card(
-        shape = cornerShape,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+    if (values.isEmpty()) {
+        expanded = false
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
         modifier = modifier
-            .border(1.dp, borderColor, cornerShape)
-            .width(IntrinsicSize.Max)
-            .onFocusChanged { focusState -> showBorder = focusState.hasFocus }
     ) {
-        Box(modifier = Modifier.padding(16.dp)) {
-            if (value.isEmpty()) {
-                Text(
-                    text = hint,
-                    style = MaterialTheme.typography.labelLarge
-                        .copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Card(
+            shape = cornerShape,
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            modifier = modifier
+                .border(1.dp, borderColor, cornerShape)
+                .width(IntrinsicSize.Max)
+                .onFocusChanged { focusState -> showBorder = focusState.hasFocus }
+        ) {
+            Row(modifier = Modifier.padding(16.dp)) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(24.dp)
+                ) {
+                    if (value.isEmpty()) {
+                        Text(
+                            text = hint,
+                            style = MaterialTheme.typography.labelLarge
+                                .copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                            modifier = Modifier.align(Alignment.CenterStart)
+                        )
+                    }
+                    BasicTextField(
+                        value = value,
+                        onValueChange = onValueChange,
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .onFocusChanged { focusState ->
+                                if (focusState.isFocused) {
+                                    scope.launch(Dispatchers.Main) {
+                                        text = text.copy(selection = TextRange(0, text.text.length))
+                                    }
+                                }
+                            },
+                        keyboardActions = KeyboardActions(
+                            onGo = {
+                                onSubmit()
+                                focusManager.clearFocus()
+                            }
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go)
+                    )
+                }
+
+                if (values.isNotEmpty()) {
+                    Icon(
+                        Icons.Filled.ArrowDropDown,
+                        null,
+                        Modifier
+                            .rotate(if (expanded) 180f else 0f)
+                            .menuAnchor()
+                    )
+                }
+            }
+        }
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            values.forEach { selectionOption ->
+                DropdownMenuItem(
+                    onClick = {
+                        text = text.copy(selectionOption)
+                        onValueChange(selectionOption)
+                        expanded = false
+                    },
+                    interactionSource = MutableInteractionSource(),
+                    text = {
+                        Text(text = selectionOption)
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            onValueDeleted(selectionOption)
+//                            expanded = false
+                        }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_clear),
+                                contentDescription = null,
+                            )
+                        }
+                    }
                 )
             }
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                textStyle = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .fillMaxWidth()
-            )
         }
     }
 }

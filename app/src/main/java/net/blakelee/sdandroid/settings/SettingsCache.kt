@@ -14,8 +14,18 @@ private val MODEL_KEY = stringPreferencesKey("model")
 private val MODELS_KEY = stringSetPreferencesKey("models")
 private val SAMPLER_KEY = stringPreferencesKey("sampler")
 private val SAMPLERS_KEY = stringSetPreferencesKey("samplers")
+private val CFG_KEY = floatPreferencesKey("cfg")
+private val STEPS_KEY = intPreferencesKey("steps")
 private val HEIGHT_KEY = intPreferencesKey("height")
 private val WIDTH_KEY = intPreferencesKey("width")
+
+data class SharedSettings(
+    val sampler: String,
+    val cfg: Float,
+    val steps: Int,
+    val width: Int,
+    val height: Int
+)
 
 @Singleton
 class SettingsCache @Inject constructor(
@@ -64,6 +74,12 @@ class SettingsCache @Inject constructor(
     }.combine(dataStore.data.map { preferences ->
         preferences[SAMPLERS_KEY] ?: sortedSetOf()
     }) { server, dataStore -> server.ifEmpty { dataStore } }
+
+    val steps: Flow<Int> = get(STEPS_KEY, 25)
+    suspend fun setSteps(steps: Int) = set(STEPS_KEY, steps)
+
+    val cfg: Flow<Float> = get(CFG_KEY, 8.5f)
+    suspend fun setCfg(cfg: Float) = set(CFG_KEY, cfg)
 
     val height: Flow<Int> = get(HEIGHT_KEY, 512)
     suspend fun setHeight(height: Int) = set(HEIGHT_KEY, height)

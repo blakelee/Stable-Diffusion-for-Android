@@ -32,17 +32,20 @@ class Text2ImageCache @Inject constructor(
 
     val images = MutableStateFlow(emptyList<Bitmap>())
 
-    suspend fun submit(sampler: String, width: Int, height: Int): Flow<Boolean> = flow {
+    suspend fun submit(
+        sampler: String,
+        cfg: Float,
+        steps: Int,
+        width: Int,
+        height: Int
+    ): Flow<Boolean> = flow {
         runCatching {
             emit(true)
-
-            val cfgScale = cfgScale.first()
-            val steps = steps.first()
 
             val prompt = prompt.first()
             addPrompt(prompt)
 
-            val response = repository.text2Image(prompt, cfgScale, steps, sampler, width, height)
+            val response = repository.text2Image(prompt, cfg, steps, sampler, width, height)
 
             images.emit(response.images.mapToBitmap())
             // Artificial delay to finish the animation
@@ -65,7 +68,5 @@ class Text2ImageCache @Inject constructor(
 
     companion object : SharedPreferencesKeys {
         override val promptKey: String = "t2i_prompt_key"
-        override val stepsKey: String = "t2i_steps_key"
-        override val cfgScaleKey: String = "t2i_cfg_scale_key"
     }
 }

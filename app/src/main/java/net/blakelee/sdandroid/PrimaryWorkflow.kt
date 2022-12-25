@@ -15,6 +15,7 @@ import net.blakelee.sdandroid.main.MainScreen
 import net.blakelee.sdandroid.network.StableDiffusionRepository
 import net.blakelee.sdandroid.settings.SettingsCache
 import net.blakelee.sdandroid.settings.SettingsWorkflow
+import net.blakelee.sdandroid.settings.SharedSettings
 import net.blakelee.sdandroid.text2image.Text2ImageCache
 import net.blakelee.sdandroid.text2image.Text2ImageWorkflow
 import javax.inject.Inject
@@ -36,7 +37,8 @@ class PrimaryWorkflow @Inject constructor(
     data class State(
         val tab: BottomBarItem = BottomBarItem.Text2Image,
         val submit: BottomBarItem? = null,
-        val progress: Float? = null
+        val progress: Float? = null,
+        val settings: SharedSettings? = null
     )
 
     override fun initialState(props: Unit, snapshot: Snapshot?): State = State()
@@ -47,11 +49,20 @@ class PrimaryWorkflow @Inject constructor(
         context: RenderContext
     ): ComposeScreen {
 
-        when (renderState.submit) {
-            BottomBarItem.Text2Image -> context.runningWorker(text2Image(), handler = progress)
-            BottomBarItem.Image2Image -> context.runningWorker(image2Image(), handler = progress)
-            else -> {}
+        renderState.settings?.let { settings ->
+            when (renderState.submit) {
+                BottomBarItem.Text2Image ->
+                    context.runningWorker(text2Image(settings), handler = progress)
+                BottomBarItem.Image2Image ->
+                    context.runningWorker(image2Image(settings), handler = progress)
+                else -> {}
+            }
         }
+
+        context.runningWorker(
+            sharedSettingsWorker(),
+            handler = { action { state = state.copy(settings = it) } }
+        )
 
         return MainScreen(
             onBack = loginRepository::logout,
@@ -79,7 +90,10 @@ class PrimaryWorkflow @Inject constructor(
             BottomBarItem.Text2Image -> context.renderChild(t2iWorkflow, Unit, handler = { action })
             BottomBarItem.Image2Image ->
                 context.renderChild(i2iWorkflow, Unit, handler = { action })
-            BottomBarItem.Settings -> context.renderChild(settingsWorkflow, Unit) { noAction() }
+            BottomBarItem.Settings -> context.renderChild(
+                settingsWorkflow,
+                state.settings
+            ) { noAction() }
         }
     }
 
@@ -88,28 +102,35 @@ class PrimaryWorkflow @Inject constructor(
         state = state.copy(submit = submit, progress = progress)
     }
 
-    private fun text2Image(): Worker<Float?> = flow {
-        val sampler = settingsCache.sampler.first()
-        val width = settingsCache.width.first()
-        val height = settingsCache.height.first()
-        emitAll(text2Image.submit(sampler, width, height)
-            .combine(progressFlow()) { processing, progress ->
-                if (processing) progress else null
-            }
-        )
-    }.asWorker()
-
-    private fun image2Image(): Worker<Float?> = flow {
-        val sampler = settingsCache.sampler.first()
-        val width = settingsCache.width.first()
-        val height = settingsCache.height.first()
-        emitAll(
-            image2Image.submit(sampler, width, height)
+    private fun text2Image(settings: SharedSettings): Worker<Float?> = flow {
+        with(settings) {
+            emitAll(text2Image.submit(sampler, cfg, steps, width, height)
                 .combine(progressFlow()) { processing, progress ->
                     if (processing) progress else null
                 }
-        )
+            )
+        }
     }.asWorker()
+
+    private fun image2Image(settings: SharedSettings): Worker<Float?> = flow {
+        with(settings) {
+            emitAll(
+                image2Image.submit(sampler, cfg, steps, width, height)
+                    .combine(progressFlow()) { processing, progress ->
+                        if (processing) progress else null
+                    }
+            )
+        }
+    }.asWorker()
+
+    private fun sharedSettingsWorker() = combine(
+        settingsCache.sampler,
+        settingsCache.cfg,
+        settingsCache.steps,
+        settingsCache.width,
+        settingsCache.height,
+        ::SharedSettings
+    ).asWorker()
 
     private fun progressFlow(): Flow<Float> = flow {
         runCatching {

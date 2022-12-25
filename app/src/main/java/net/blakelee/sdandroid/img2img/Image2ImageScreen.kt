@@ -20,9 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import net.blakelee.sdandroid.compose.config
 import net.blakelee.sdandroid.compose.prompt
-import net.blakelee.sdandroid.compose.steps
 import net.blakelee.sdandroid.text2image.renderImage
 import net.blakelee.sdandroid.ui.theme.padding
 
@@ -32,10 +30,6 @@ data class Image2ImageScreen(
     val onPromptChanged: (String) -> Unit,
     val prompts: Set<String>,
     val onPromptDeleted: (String) -> Unit,
-    val cfgScale: String,
-    val onCfgScaleChanged: (String) -> Unit,
-    val steps: String,
-    val onStepsChanged: (String) -> Unit,
     val denoisingStrength: String,
     val onDenoisingStrengthChanged: (String) -> Unit,
     val selectedImage: Bitmap? = null,
@@ -56,23 +50,6 @@ data class Image2ImageScreen(
                 modifier = Modifier.fillMaxWidth(),
                 onSubmit = onSubmit
             )
-
-            Row(modifier = Modifier.padding(vertical = 8.dp)) {
-                config(
-                    value = cfgScale,
-                    modifier = Modifier.weight(0.5f),
-                    onValueChange = { onCfgScaleChanged(it) }
-                )
-
-                Spacer(Modifier.width(8.dp))
-
-                steps(
-                    value = steps,
-                    modifier = Modifier.weight(0.5f),
-                    onValueChange = onStepsChanged,
-                    onSubmit = onSubmit
-                )
-            }
 
             var sliderPosition by remember { mutableStateOf(75) }
             val sliderPositionString by remember {

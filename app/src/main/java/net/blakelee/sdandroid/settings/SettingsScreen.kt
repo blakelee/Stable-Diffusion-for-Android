@@ -2,10 +2,7 @@ package net.blakelee.sdandroid.settings
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -17,6 +14,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
+import net.blakelee.sdandroid.compose.config
+import net.blakelee.sdandroid.compose.steps
 import kotlin.math.roundToInt
 
 data class SettingsScreen(
@@ -29,9 +28,13 @@ data class SettingsScreen(
     val models: Set<String>,
     val modelsEnabled: Boolean,
     val onModelChanged: (String) -> Unit,
+    val cfg: Float,
+    val onCfgChanged: (String) -> Unit,
+    val steps: Int,
+    val onStepsChanged: (String) -> Unit,
     val width: Int,
-    val height: Int,
     val onWidthChanged: (Int) -> Unit,
+    val height: Int,
     val onHeightChanged: (Int) -> Unit
 ) : ComposeScreen {
 
@@ -62,6 +65,20 @@ data class SettingsScreen(
                 label = "Models"
             )
 
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                config(
+                    value = cfg.toString(),
+                    modifier = Modifier.weight(0.5f),
+                    onValueChange = onCfgChanged
+                )
+
+                steps(
+                    value = steps.toString(),
+                    modifier = Modifier.weight(0.5f),
+                    onValueChange = onStepsChanged
+                )
+            }
+
             DimensionSlider(
                 text = { position -> "Width: $position" },
                 onValueChange = onWidthChanged,
@@ -84,17 +101,18 @@ fun DimensionSlider(
     onValueChange: (Int) -> Unit
 ) {
     var value by remember(value) { mutableStateOf(value) }
-
-    Text(text = text(value.toString()))
-    Slider(
-        value = value / 100f,
-        onValueChange = { value = (it * 100).roundToInt() },
-        valueRange = 2.56f..10.24f,
-        steps = 11,
-        onValueChangeFinished = {
-            onValueChange(value)
-        }
-    )
+    Column {
+        Text(text = text(value.toString()))
+        Slider(
+            value = value / 100f,
+            onValueChange = { value = (it * 100).roundToInt() },
+            valueRange = 2.56f..10.24f,
+            steps = 11,
+            onValueChangeFinished = {
+                onValueChange(value)
+            }
+        )
+    }
 }
 
 @Composable
