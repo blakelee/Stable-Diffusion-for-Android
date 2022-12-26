@@ -104,7 +104,7 @@ class PrimaryWorkflow @Inject constructor(
 
     private fun text2Image(settings: SharedSettings): Worker<Float?> = flow {
         with(settings) {
-            emitAll(text2Image.submit(sampler, cfg, steps, width, height)
+            emitAll(text2Image.submit(sampler, cfg, steps, width, height, batchCount, batchSize)
                 .combine(progressFlow()) { processing, progress ->
                     if (processing) progress else null
                 }
@@ -115,7 +115,7 @@ class PrimaryWorkflow @Inject constructor(
     private fun image2Image(settings: SharedSettings): Worker<Float?> = flow {
         with(settings) {
             emitAll(
-                image2Image.submit(sampler, cfg, steps, width, height)
+                image2Image.submit(sampler, cfg, steps, width, height, batchCount, batchSize)
                     .combine(progressFlow()) { processing, progress ->
                         if (processing) progress else null
                     }
@@ -129,6 +129,8 @@ class PrimaryWorkflow @Inject constructor(
         settingsCache.steps,
         settingsCache.width,
         settingsCache.height,
+        settingsCache.batchCount,
+        settingsCache.batchSize,
         ::SharedSettings
     ).asWorker()
 

@@ -37,7 +37,9 @@ class Text2ImageCache @Inject constructor(
         cfg: Float,
         steps: Int,
         width: Int,
-        height: Int
+        height: Int,
+        batchCount: Int,
+        batchSize: Int
     ): Flow<Boolean> = flow {
         runCatching {
             emit(true)
@@ -45,7 +47,16 @@ class Text2ImageCache @Inject constructor(
             val prompt = prompt.first()
             addPrompt(prompt)
 
-            val response = repository.text2Image(prompt, cfg, steps, sampler, width, height)
+            val response = repository.text2Image(
+                prompt,
+                cfg,
+                steps,
+                sampler,
+                width,
+                height,
+                batchCount,
+                batchSize
+            )
 
             images.emit(response.images.mapToBitmap())
             // Artificial delay to finish the animation

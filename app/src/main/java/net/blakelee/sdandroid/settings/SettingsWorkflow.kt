@@ -2,26 +2,16 @@ package net.blakelee.sdandroid.settings
 
 import com.squareup.workflow1.*
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import net.blakelee.sdandroid.Tuple9
+import net.blakelee.sdandroid.Tuple11
 import net.blakelee.sdandroid.combine
 import net.blakelee.sdandroid.landing.LoginRepository
 import net.blakelee.sdandroid.settings.SettingsWorkflow.State
 import javax.inject.Inject
 
-
 class SettingsWorkflow @Inject constructor(
-    private val loginRepository: LoginRepository,
+    loginRepository: LoginRepository,
     private val settingsCache: SettingsCache
 ) : StatefulWorkflow<SharedSettings?, State, Unit, ComposeScreen>() {
-
-    sealed class Action {
-        data class UpdateModel(val model: String) : Action()
-        data class UpdateSampler(val sampler: String) : Action()
-        data class UpdateCfg(val cfg: Float) : Action()
-        data class UpdateSteps(val steps: Int) : Action()
-        data class UpdateWidth(val width: Int) : Action()
-        data class UpdateHeight(val height: Int) : Action()
-    }
 
     data class State(
         val url: String = "",
@@ -33,7 +23,9 @@ class SettingsWorkflow @Inject constructor(
         val steps: Int = 25,
         val width: Int = 512,
         val height: Int = 512,
-        val action: Action? = null
+        val batchCount: Int = 1,
+        val batchSize: Int = 1,
+        val action: (suspend SettingsCache.() -> Unit)? = null
     )
 
     override fun render(
@@ -43,7 +35,7 @@ class SettingsWorkflow @Inject constructor(
     ): ComposeScreen {
 
         context.runningWorker(state) {
-            val (url, model, models, sampler, samplers, cfg, steps, width, height) = it
+            val (url, model, models, sampler, samplers, cfg, steps, width, height, batchCount, batchSize) = it
             action {
                 state = state.copy(
                     url = url,
@@ -54,72 +46,45 @@ class SettingsWorkflow @Inject constructor(
                     cfg = cfg,
                     steps = steps,
                     width = width,
-                    height = height
+                    height = height,
+                    batchCount = batchCount,
+                    batchSize = batchSize
                 )
             }
         }
 
-        fun sideEffect(key: String, apply: suspend SettingsCache.() -> Unit) =
-            context.runningSideEffect("$key+${renderState.action.hashCode()}") {
-                apply.invoke(settingsCache)
+        renderState.action?.let {
+            context.runningSideEffect(it.hashCode().toString()) {
+                it.invoke(settingsCache)
             }
+        }
 
-        when (renderState.action) {
-            is Action.UpdateModel -> sideEffect("updateModel") {
-                setModel(renderState.action.model)
-            }
-            is Action.UpdateSampler -> sideEffect("updateSampler") {
-                setSampler(renderState.action.sampler)
-            }
-            is Action.UpdateWidth -> sideEffect("updateWidth") {
-                setWidth(renderState.action.width)
-            }
-            is Action.UpdateHeight -> sideEffect("updateHeight") {
-                setHeight(renderState.action.height)
-            }
-            is Action.UpdateCfg -> sideEffect("updateCfg") {
-                setCfg(renderState.action.cfg)
-            }
-            is Action.UpdateSteps -> sideEffect("updateSteps") {
-                setSteps(renderState.action.steps)
-            }
-            null -> {}
+        fun <T> updateAction(value: suspend SettingsCache.(T) -> Unit): (T) -> Unit = {
+            context.eventHandler { state = state.copy(action = { value(it) }) }()
         }
 
         return SettingsScreen(
             url = renderState.url,
             sampler = renderState.sampler,
-            onSamplerChanged = {
-                context.eventHandler { state = state.copy(action = Action.UpdateSampler(it)) }()
-            },
+            onSamplerChanged = updateAction(SettingsCache::setSampler),
             samplers = renderState.samplers,
-            samplersEnabled = renderState.action !is Action.UpdateSampler,
+            samplersEnabled = true,//renderState.action !is Action.UpdateSampler,
             model = renderState.model,
             models = renderState.models,
-            modelsEnabled = renderState.action !is Action.UpdateModel,
-            onModelChanged = {
-                context.eventHandler { state = state.copy(action = Action.UpdateModel(it)) }()
-            },
+            modelsEnabled = true,//renderState.action !is Action.UpdateModel,
+            onModelChanged = updateAction(SettingsCache::setModel),
             cfg = renderState.cfg,
-            onCfgChanged = { cfg ->
-                val cfgScaleFloat = cfg.toFloatOrNull() ?: 0f
-                context.eventHandler {
-                    state = state.copy(action = Action.UpdateCfg(cfgScaleFloat))
-                }()
-            },
+            onCfgChanged = updateAction(SettingsCache::setCfg),
             steps = renderState.steps,
-            onStepsChanged = { steps ->
-                val stepsInt = steps.filter { it.isDigit() }.toIntOrNull() ?: 0
-                context.eventHandler { state = state.copy(action = Action.UpdateSteps(stepsInt)) }()
-            },
+            onStepsChanged = updateAction(SettingsCache::setSteps),
             width = renderState.width,
-            onWidthChanged = {
-                context.eventHandler { state = state.copy(action = Action.UpdateWidth(it)) }()
-            },
+            onWidthChanged = updateAction(SettingsCache::setWidth),
             height = renderState.height,
-            onHeightChanged = {
-                context.eventHandler { state = state.copy(action = Action.UpdateHeight(it)) }()
-            }
+            onHeightChanged = updateAction(SettingsCache::setHeight),
+            batchCount = renderState.batchCount,
+            onBatchCountChanged = updateAction(SettingsCache::setBatchCount),
+            batchSize = renderState.batchSize,
+            onBatchSizeChanged = updateAction(SettingsCache::setBatchSize)
         )
     }
 
@@ -133,7 +98,9 @@ class SettingsWorkflow @Inject constructor(
         settingsCache.steps,
         settingsCache.width,
         settingsCache.height,
-        ::Tuple9
+        settingsCache.batchCount,
+        settingsCache.batchSize,
+        ::Tuple11
     ).asWorker()
 
     override fun initialState(props: SharedSettings?, snapshot: Snapshot?): State = props?.let {

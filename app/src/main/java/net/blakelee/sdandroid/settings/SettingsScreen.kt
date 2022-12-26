@@ -29,20 +29,24 @@ data class SettingsScreen(
     val modelsEnabled: Boolean,
     val onModelChanged: (String) -> Unit,
     val cfg: Float,
-    val onCfgChanged: (String) -> Unit,
+    val onCfgChanged: (Float) -> Unit,
     val steps: Int,
-    val onStepsChanged: (String) -> Unit,
+    val onStepsChanged: (Int) -> Unit,
     val width: Int,
     val onWidthChanged: (Int) -> Unit,
     val height: Int,
-    val onHeightChanged: (Int) -> Unit
+    val onHeightChanged: (Int) -> Unit,
+    val batchCount: Int,
+    val onBatchCountChanged: (Int) -> Unit,
+    val batchSize: Int,
+    val onBatchSizeChanged: (Int) -> Unit
 ) : ComposeScreen {
 
     @Composable
     override fun Content(viewEnvironment: ViewEnvironment) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(8.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(16.dp)
         ) {
             SelectionContainer(modifier = Modifier.align(CenterHorizontally)) {
                 Text(url)
@@ -65,17 +69,23 @@ data class SettingsScreen(
                 label = "Models"
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 config(
                     value = cfg.toString(),
                     modifier = Modifier.weight(0.5f),
-                    onValueChange = onCfgChanged
+                    onValueChange = {
+                        val cfgScaleFloat = it.toFloatOrNull() ?: 0f
+                        onCfgChanged(cfgScaleFloat)
+                    }
                 )
 
                 steps(
                     value = steps.toString(),
                     modifier = Modifier.weight(0.5f),
-                    onValueChange = onStepsChanged
+                    onValueChange = { steps ->
+                        val stepsInt = steps.filter { it.isDigit() }.toIntOrNull() ?: 0
+                        onStepsChanged(stepsInt)
+                    }
                 )
             }
 
@@ -90,6 +100,28 @@ data class SettingsScreen(
                 onValueChange = onHeightChanged,
                 value = height
             )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                val batchCountValues = remember { (1..16).map { it.toString() }.toSet() }
+                Dropdown(
+                    value = batchCount.toString(),
+                    values = batchCountValues,
+                    onValueChange = { onBatchCountChanged(it.toInt()) },
+                    enabled = true,
+                    label = "Batch Count",
+                    modifier = Modifier.weight(1f)
+                )
+
+                val batchSizeValues = remember { (1..8).map { it.toString() }.toSet() }
+                Dropdown(
+                    value = batchSize.toString(),
+                    values = batchSizeValues,
+                    onValueChange = { onBatchSizeChanged(it.toInt()) },
+                    enabled = true,
+                    label = "Batch Size",
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }

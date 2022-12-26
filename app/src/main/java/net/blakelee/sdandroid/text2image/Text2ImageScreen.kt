@@ -41,6 +41,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.google.accompanist.pager.ExperimentalPagerApi
+import com.google.accompanist.pager.HorizontalPager
+import com.google.accompanist.pager.rememberPagerState
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +63,7 @@ class Text2ImageScreen(
     val images: List<Bitmap>
 ) : ComposeScreen {
 
+    @OptIn(ExperimentalPagerApi::class)
     @Composable
     override fun Content(viewEnvironment: ViewEnvironment) {
         Column(
@@ -77,8 +81,37 @@ class Text2ImageScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            images.forEach {
-                renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
+            val pagerState = rememberPagerState()
+            val scope = rememberCoroutineScope()
+
+            HorizontalPager(count = images.size, state = pagerState) { pager ->
+                renderImage(bitmap = images[pager], modifier = Modifier.fillMaxWidth())
+            }
+
+            if (images.size > 1) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(
+                        content = { Text("Back") },
+                        enabled = pagerState.currentPage > 0,
+                        onClick = {
+                            scope.launch {
+                                pagerState.scrollToPage(pagerState.currentPage - 1)
+                            }
+                        }
+                    )
+                    Button(
+                        content = { Text("Next") },
+                        enabled = pagerState.currentPage < images.size - 1,
+                        onClick = {
+                            scope.launch {
+                                pagerState.scrollToPage(pagerState.currentPage + 1)
+                            }
+                        }
+                    )
+                }
             }
         }
     }
@@ -246,6 +279,7 @@ fun ElevatedTextField(
                         textStyle = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier
                             .align(Alignment.CenterStart)
+                            .fillMaxWidth()
                             .onFocusChanged { focusState ->
                                 if (focusState.isFocused) {
                                     scope.launch(Dispatchers.Main) {

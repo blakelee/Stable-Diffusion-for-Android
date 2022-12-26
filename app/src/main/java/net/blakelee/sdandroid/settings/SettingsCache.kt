@@ -18,13 +18,17 @@ private val CFG_KEY = floatPreferencesKey("cfg")
 private val STEPS_KEY = intPreferencesKey("steps")
 private val HEIGHT_KEY = intPreferencesKey("height")
 private val WIDTH_KEY = intPreferencesKey("width")
+private val COUNT_KEY = intPreferencesKey("batchCount")
+private val SIZE_KEY = intPreferencesKey("sizeCount")
 
 data class SharedSettings(
     val sampler: String,
     val cfg: Float,
     val steps: Int,
     val width: Int,
-    val height: Int
+    val height: Int,
+    val batchCount: Int,
+    val batchSize: Int
 )
 
 @Singleton
@@ -87,10 +91,17 @@ class SettingsCache @Inject constructor(
     val width: Flow<Int> = get(WIDTH_KEY, 512)
     suspend fun setWidth(width: Int) = set(WIDTH_KEY, width)
 
-    private suspend fun <T : Any> set(key: Preferences.Key<T>, value: T) =
+    val batchCount: Flow<Int> = get(COUNT_KEY, 1)
+    suspend fun setBatchCount(batchCount: Int) = set(COUNT_KEY, batchCount)
+
+    val batchSize: Flow<Int> = get(SIZE_KEY, 1)
+    suspend fun setBatchSize(batchSize: Int) = set(SIZE_KEY, batchSize)
+
+    private suspend fun <T : Any> set(key: Preferences.Key<T>, value: T) {
         dataStore.edit { preferences ->
             preferences[key] = value
         }
+    }
 
     private fun <T : Any> get(key: Preferences.Key<T>, defaultValue: T): Flow<T> =
         dataStore.data.map { preferences ->

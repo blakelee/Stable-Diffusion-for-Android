@@ -9,7 +9,14 @@ class StableDiffusionRepository @Inject constructor(
 ) {
 
     suspend fun text2Image(
-        prompt: String, cfg: Float, steps: Int, sampler: String, width: Int, height: Int
+        prompt: String,
+        cfg: Float,
+        steps: Int,
+        sampler: String,
+        width: Int,
+        height: Int,
+        batchCount: Int,
+        batchSize: Int
     ): Text2ImageResponse {
         val body = Text2ImageBody(
             prompt = prompt,
@@ -17,7 +24,9 @@ class StableDiffusionRepository @Inject constructor(
             cfg_scale = cfg,
             sampler_name = sampler,
             width = width,
-            height = height
+            height = height,
+            n_iter = batchCount,
+            batch_size = batchSize
         )
         return service.text2Image(body)
     }
@@ -31,6 +40,8 @@ class StableDiffusionRepository @Inject constructor(
         base64Bitmap: String,
         width: Int,
         height: Int,
+        batchCount: Int,
+        batchSize: Int
     ): Image2ImageResponse {
         val body = Image2ImageBody(
             prompt = prompt,
@@ -41,7 +52,9 @@ class StableDiffusionRepository @Inject constructor(
             denoising_strength = denoisingStrength,
             include_init_images = true,
             width = width,
-            height = height
+            height = height,
+            n_iter = batchCount,
+            batch_size = batchSize
         )
 
         return service.image2Image(body)
