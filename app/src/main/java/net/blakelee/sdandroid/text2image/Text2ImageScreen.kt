@@ -18,7 +18,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
+import com.google.accompanist.pager.PagerState
 import com.google.accompanist.pager.rememberPagerState
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
@@ -82,34 +85,22 @@ class Text2ImageScreen(
             )
 
             val pagerState = rememberPagerState()
-            val scope = rememberCoroutineScope()
 
-            HorizontalPager(count = images.size, state = pagerState) { pager ->
-                renderImage(bitmap = images[pager], modifier = Modifier.fillMaxWidth())
-            }
+            Box {
+                HorizontalPager(count = images.size, state = pagerState) { pager ->
+                    RenderImage(bitmap = images[pager], modifier = Modifier.fillMaxWidth())
+                }
 
-            if (images.size > 1) {
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Button(
-                        content = { Text("Back") },
-                        enabled = pagerState.currentPage > 0,
-                        onClick = {
-                            scope.launch {
-                                pagerState.scrollToPage(pagerState.currentPage - 1)
-                            }
-                        }
-                    )
-                    Button(
-                        content = { Text("Next") },
-                        enabled = pagerState.currentPage < images.size - 1,
-                        onClick = {
-                            scope.launch {
-                                pagerState.scrollToPage(pagerState.currentPage + 1)
-                            }
-                        }
+                // Start at the first image when we get a new set of images
+                LaunchedEffect(images.hashCode()) {
+                    pagerState.scrollToPage(0)
+                }
+
+                if (images.size > 1) {
+                    PagerButtons(
+                        numImages = images.size,
+                        pagerState = pagerState,
+                        Modifier.align(Alignment.BottomCenter)
                     )
                 }
             }
@@ -117,9 +108,42 @@ class Text2ImageScreen(
     }
 }
 
+@OptIn(ExperimentalPagerApi::class)
+@Composable
+fun PagerButtons(numImages: Int, pagerState: PagerState, modifier: Modifier) {
+    val scope = rememberCoroutineScope()
+
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+    ) {
+        IconButton(
+            enabled = pagerState.currentPage > 0,
+            onClick = {
+                scope.launch {
+                    pagerState.scrollToPage(pagerState.currentPage - 1)
+                }
+            },
+            content = { Icon(Icons.Filled.ArrowBack, null) }
+        )
+
+        IconButton(
+            enabled = pagerState.currentPage < numImages - 1,
+            onClick = {
+                scope.launch {
+                    pagerState.scrollToPage(pagerState.currentPage + 1)
+                }
+            },
+            content = { Icon(Icons.Outlined.ArrowForward, null) }
+        )
+    }
+}
+
 
 @Composable
-fun renderImage(bitmap: Bitmap, modifier: Modifier = Modifier) {
+fun RenderImage(bitmap: Bitmap, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     var touchPoint: Offset by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
@@ -164,10 +188,10 @@ fun renderImage(bitmap: Bitmap, modifier: Modifier = Modifier) {
 
             DropdownMenuItem(
                 onClick = {
-                    val date = SimpleDateFormat("YYYYMMDD-HHMM", Locale.getDefault())
+                    val date = SimpleDateFormat("yyyyMMDD-HMM", Locale.getDefault())
                         .format(Date())
 
-                    val uri = bitmap.toUri(context, displayName = "img-$date")
+                    bitmap.toUri(context, displayName = "img-$date")
                     expanded = false
                 },
                 interactionSource = MutableInteractionSource(),
@@ -259,11 +283,11 @@ fun ElevatedTextField(
                 .width(IntrinsicSize.Max)
                 .onFocusChanged { focusState -> showBorder = focusState.hasFocus }
         ) {
-            Row(modifier = Modifier.padding(16.dp)) {
+            Row {
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(24.dp)
+                        .padding(start = 16.dp, top = 16.dp, bottom = 16.dp)
                 ) {
                     if (value.isEmpty()) {
                         Text(
@@ -298,12 +322,13 @@ fun ElevatedTextField(
                 }
 
                 if (values.isNotEmpty()) {
-                    Icon(
-                        Icons.Filled.ArrowDropDown,
-                        null,
-                        Modifier
+                    IconButton(
+                        onClick = {},
+                        content = { Icon(Icons.Filled.ArrowDropDown, null) },
+                        modifier = Modifier
                             .rotate(if (expanded) 180f else 0f)
                             .menuAnchor()
+                            .align(Alignment.CenterVertically)
                     )
                 }
             }
@@ -330,7 +355,6 @@ fun ElevatedTextField(
                     trailingIcon = {
                         IconButton(onClick = {
                             onValueDeleted(selectionOption)
-//                            expanded = false
                         }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_clear),

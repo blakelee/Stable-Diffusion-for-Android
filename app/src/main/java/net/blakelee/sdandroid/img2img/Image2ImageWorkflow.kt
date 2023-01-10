@@ -52,19 +52,11 @@ class Image2ImageWorkflow @Inject constructor(
         if (renderState.isCropping && renderState.selectedImage != null)
             return CropScreen(
                 bitmap = renderState.selectedImage,
-                onBackPressed = context.eventHandler {
-                    state = state.copy(isCropping = false)
-                },
-                onImageCropped = { bitmap ->
-                    context.eventHandler {
-                        state = state.copy(
-                            isCropping = false,
-                            action = setBitmapAction(bitmap)
-                        )
-                    }()
+                onBackPressed = context.eventHandler { state = state.copy(isCropping = false) },
+                onImageCropped = context.eventHandler { bitmap ->
+                    state = state.copy(isCropping = false, action = setBitmapAction(bitmap))
                 }
             )
-
 
         context.runningWorker(stateFlow.asWorker(), handler = ::updateState)
 
@@ -74,7 +66,6 @@ class Image2ImageWorkflow @Inject constructor(
 
         renderState.action?.let { action ->
             context.runningSideEffect(action.key) {
-                action.runnable()
                 context.eventHandler { state = state.copy(action = null) }
             }
         }
@@ -82,23 +73,25 @@ class Image2ImageWorkflow @Inject constructor(
         return Image2ImageScreen(
             prompt = renderState.prompt,
             prompts = renderState.prompts,
-            onPromptChanged = { context.actionSink.send(setPrompt(it)) },
-            onPromptDeleted = { context.actionSink.send(deletePrompt(it)) },
+            onPromptChanged = context.setAction(::setPrompt),
+            onPromptDeleted = context.setAction(::deletePrompt),
             onSubmit = context.eventHandler { setOutput(Submit) },
             denoisingStrength = renderState.denoisingStrength.toString(),
-            onDenoisingStrengthChanged = { context.actionSink.send(setDenoisingStrength(it)) },
+            onDenoisingStrengthChanged = context.setAction(::setDenoisingStrength),
             selectedImage = renderState.selectedImage,
             images = renderState.images,
-            onImageSelected = { bitmap ->
-                context.actionSink.send(action {
-                    state = state.copy(
-                        isCropping = true,
-                        selectedImage = bitmap,
-                        action = setBitmapAction(bitmap)
-                    )
-                })
+            onImageSelected = context.eventHandler { bitmap ->
+                state = state.copy(
+                    isCropping = true,
+                    selectedImage = bitmap,
+                    action = setBitmapAction(bitmap)
+                )
             }
         )
+    }
+
+    private fun <EventT> RenderContext.setAction(action: (EventT) -> Unit): (EventT) -> Unit {
+        return { event -> eventHandler { action(event) } }
     }
 
     private fun setBitmapAction(bitmap: Bitmap?): Action = Action("selectedImage") {

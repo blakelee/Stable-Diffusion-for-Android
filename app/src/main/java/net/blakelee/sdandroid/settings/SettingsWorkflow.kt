@@ -25,6 +25,7 @@ class SettingsWorkflow @Inject constructor(
         val height: Int = 512,
         val batchCount: Int = 1,
         val batchSize: Int = 1,
+        val actionName: String? = null,
         val action: (suspend SettingsCache.() -> Unit)? = null
     )
 
@@ -56,23 +57,28 @@ class SettingsWorkflow @Inject constructor(
         renderState.action?.let {
             context.runningSideEffect(it.hashCode().toString()) {
                 it.invoke(settingsCache)
+                context.eventHandler { state = state.copy(actionName = null, action = null) }()
             }
         }
 
-        fun <T> updateAction(value: suspend SettingsCache.(T) -> Unit): (T) -> Unit = {
-            context.eventHandler { state = state.copy(action = { value(it) }) }()
-        }
+        fun <T> updateAction(
+            value: suspend SettingsCache.(T) -> Unit,
+            name: String? = null
+        ): (T) -> Unit =
+            context.eventHandler { t ->
+                state = state.copy(actionName = name, action = { value(t) })
+            }
 
         return SettingsScreen(
             url = renderState.url,
             sampler = renderState.sampler,
-            onSamplerChanged = updateAction(SettingsCache::setSampler),
+            onSamplerChanged = updateAction(SettingsCache::setSampler, "sampler"),
             samplers = renderState.samplers,
-            samplersEnabled = true,//renderState.action !is Action.UpdateSampler,
+            samplersEnabled = renderState.actionName != "sampler",
             model = renderState.model,
             models = renderState.models,
-            modelsEnabled = true,//renderState.action !is Action.UpdateModel,
-            onModelChanged = updateAction(SettingsCache::setModel),
+            modelsEnabled = renderState.actionName != "model",
+            onModelChanged = updateAction(SettingsCache::setModel, "model"),
             cfg = renderState.cfg,
             onCfgChanged = updateAction(SettingsCache::setCfg),
             steps = renderState.steps,

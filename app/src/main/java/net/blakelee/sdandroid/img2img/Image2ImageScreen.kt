@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
 import net.blakelee.sdandroid.compose.prompt
-import net.blakelee.sdandroid.text2image.renderImage
+import net.blakelee.sdandroid.text2image.RenderImage
 import net.blakelee.sdandroid.ui.theme.padding
 
 
@@ -82,12 +82,12 @@ data class Image2ImageScreen(
                 }
 
                 selectedImage?.let {
-                    renderImage(bitmap = it, modifier = Modifier.size(48.dp))
+                    RenderImage(bitmap = it, modifier = Modifier.size(48.dp))
                 }
             }
 
             images.forEach {
-                renderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
+                RenderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
             }
         }
     }

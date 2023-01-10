@@ -71,11 +71,7 @@ class PrimaryWorkflow @Inject constructor(
             progress = renderState.progress ?: 0f,
             processing = renderState.submit != null,
             selectedItem = renderState.tab,
-            onItemSelected = { item ->
-                context.eventHandler {
-                    state = state.copy(tab = item)
-                }()
-            },
+            onItemSelected = context.eventHandler { item -> state = state.copy(tab = item) },
             screen = nextState(context, renderState)
         )
     }

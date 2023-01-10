@@ -29,11 +29,7 @@ class LoginWorkflow @Inject constructor(
         renderProps: Unit,
         renderState: State,
         context: RenderContext
-    ): ComposeScreen {
-        return LandingPageScreen { url ->
-            context.actionSink.send(login(url))
-        }
-    }
+    ): ComposeScreen = LandingPageScreen(context.eventHandler { url -> login(url) })
 
     override fun snapshotState(state: State): Snapshot? = null
 }

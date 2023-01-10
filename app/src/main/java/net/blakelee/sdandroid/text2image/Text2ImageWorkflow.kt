@@ -63,9 +63,9 @@ class Text2ImageWorkflow @Inject constructor(
 
         return Text2ImageScreen(
             prompt = renderState.prompt,
-            onPromptChanged = { context.actionSink.send(setPrompt(it)) },
+            onPromptChanged = context.eventHandler { it -> setPrompt(it) },
             prompts = renderState.prompts,
-            onPromptDeleted = { context.actionSink.send(deletePrompt(it)) },
+            onPromptDeleted = context.eventHandler { it -> deletePrompt(it) },
             onSubmit = context.eventHandler { setOutput(Submit) },
             images = renderState.images
         )
