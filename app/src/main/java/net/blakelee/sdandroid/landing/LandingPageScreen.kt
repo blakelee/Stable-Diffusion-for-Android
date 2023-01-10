@@ -4,21 +4,24 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
+import net.blakelee.sdandroid.text2image.ElevatedTextField
 import net.blakelee.sdandroid.ui.theme.padding
 
 data class LandingPageScreen(
-    val onLogin: (String) -> Unit
+    val onLogin: (url: String, username: String, password: String) -> Unit
 ) : ComposeScreen {
 
     @Composable
     override fun Content(viewEnvironment: ViewEnvironment) {
         Scaffold { paddingValues ->
             Column(
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
                     .padding(paddingValues)
                     .padding(padding)
@@ -30,10 +33,21 @@ data class LandingPageScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(Modifier.size(padding))
+                var isChecked by remember { mutableStateOf(false) }
+                var username by remember { mutableStateOf("") }
+                var password by remember { mutableStateOf("") }
+
+                AuthFields(
+                    checked = isChecked,
+                    onCheckedChange = { isChecked = it },
+                    username = username,
+                    onUsernameChange = { username = it },
+                    password = password,
+                    onPasswordChange = { password = it }
+                )
 
                 Button(
-                    onClick = { onLogin(url) },
+                    onClick = { onLogin(url, username, password) },
                     modifier = Modifier.fillMaxWidth(),
                     content = {
                         Text("Login")
@@ -41,6 +55,48 @@ data class LandingPageScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun AuthFields(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    username: String,
+    onUsernameChange: (String) -> Unit,
+    password: String,
+    onPasswordChange: (String) -> Unit
+) {
+    Row {
+
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.align(Alignment.CenterVertically)
+        )
+        Text(
+            text = "Use authentication",
+            modifier = Modifier.align(Alignment.CenterVertically)
+        )
+    }
+
+    if (checked) {
+        ElevatedTextField(
+            value = username,
+            onValueChange = { onUsernameChange(it) },
+            onSubmit = {},
+            hint = "Username",
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        ElevatedTextField(
+            value = password,
+            onValueChange = { onPasswordChange(it) },
+            onSubmit = {},
+            hint = "Password",
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

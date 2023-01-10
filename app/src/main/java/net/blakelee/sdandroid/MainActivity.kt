@@ -8,9 +8,11 @@ import androidx.core.view.WindowCompat
 import com.squareup.workflow1.WorkflowExperimentalRuntime
 import com.squareup.workflow1.config.AndroidRuntimeConfigTools
 import com.squareup.workflow1.ui.ViewEnvironment
+import com.squareup.workflow1.ui.ViewRegistry
 import com.squareup.workflow1.ui.compose.WorkflowRendering
 import com.squareup.workflow1.ui.compose.renderAsState
 import dagger.hilt.android.AndroidEntryPoint
+import net.blakelee.sdandroid.compose.LoadingScreenOverlayDialogFactory
 import net.blakelee.sdandroid.ui.theme.SDAndroidTheme
 import javax.inject.Inject
 
@@ -36,7 +38,9 @@ class MainActivity : ComponentActivity() {
 
                 WorkflowRendering(
                     rendering = rendering,
-                    viewEnvironment = ViewEnvironment.EMPTY
+                    viewEnvironment = ViewEnvironment.EMPTY + (
+                            ViewRegistry to ViewRegistry(LoadingScreenOverlayDialogFactory.default)
+                            )
                 )
             }
         }

@@ -1,13 +1,19 @@
 package net.blakelee.sdandroid.network
 
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.POST
+import retrofit2.http.*
 
 interface StableDiffusionService {
 
-    @GET("login_check")
-    suspend fun isLoggedIn(): Boolean
+    @GET
+    suspend fun isLoggedIn(@Url url: String): Boolean
+
+    @FormUrlEncoded
+    @POST
+    suspend fun login(
+        @Field("username") username: String,
+        @Field("password") password: String,
+        @Url url: String
+    )
 
     @GET("sdapi/v1/progress")
     suspend fun progress(): ProgressBody

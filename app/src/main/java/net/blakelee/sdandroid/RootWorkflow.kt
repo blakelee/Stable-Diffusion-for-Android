@@ -2,7 +2,7 @@ package net.blakelee.sdandroid
 
 import com.squareup.workflow1.*
 import com.squareup.workflow1.WorkflowAction.Companion.noAction
-import com.squareup.workflow1.ui.compose.ComposeScreen
+import com.squareup.workflow1.ui.Screen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import net.blakelee.sdandroid.landing.LoginRepository
@@ -13,7 +13,7 @@ class RootWorkflow @Inject constructor(
     private val loginRepository: LoginRepository,
     private val loginWorkflow: LoginWorkflow,
     private val primaryWorkflow: PrimaryWorkflow
-) : StatefulWorkflow<Unit, RootWorkflow.State, Nothing, ComposeScreen>() {
+) : StatefulWorkflow<Unit, RootWorkflow.State, Nothing, Screen>() {
 
     sealed class State {
         object LoggedOut : State()
@@ -30,7 +30,7 @@ class RootWorkflow @Inject constructor(
         renderProps: Unit,
         renderState: State,
         context: RenderContext
-    ): ComposeScreen {
+    ): Screen {
 
         context.runningWorker(loginRepository.isLoggedIn.asWorker()) { isLoggedIn ->
             action { state = nextState(isLoggedIn) }

@@ -41,6 +41,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.pager.ExperimentalPagerApi
@@ -244,10 +245,11 @@ fun Bitmap.toUri(
 fun ElevatedTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    values: Set<String>,
-    onValueDeleted: (String) -> Unit,
+    values: Set<String> = setOf(),
+    onValueDeleted: (String) -> Unit = {},
     onSubmit: () -> Unit,
     hint: String,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
     modifier: Modifier = Modifier
 ) {
 
@@ -317,7 +319,8 @@ fun ElevatedTextField(
                                 focusManager.clearFocus()
                             }
                         ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go)
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                        visualTransformation = visualTransformation
                     )
                 }
 
