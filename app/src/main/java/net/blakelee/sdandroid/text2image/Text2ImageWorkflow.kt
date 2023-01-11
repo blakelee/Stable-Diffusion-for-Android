@@ -2,9 +2,10 @@ package net.blakelee.sdandroid.text2image
 
 import android.graphics.Bitmap
 import com.squareup.workflow1.*
-import com.squareup.workflow1.WorkflowAction.Companion.noAction
+import com.squareup.workflow1.ui.TextController
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
 import net.blakelee.sdandroid.Submit
 import net.blakelee.sdandroid.text2image.Text2ImageWorkflow.State
@@ -16,32 +17,15 @@ class Text2ImageWorkflow @Inject constructor(
     private val cache: Text2ImageCache
 ) : StatefulWorkflow<Unit, State, Submit, ComposeScreen>() {
 
-    private val stateFlow: Flow<State> = combine(
-        cache.prompt,
-        cache.prompts,
-        cache.images,
-        flowOf<Action?>(null),
-        ::State
-    )
-
-    private val updateState: MutableStateFlow<suspend () -> Unit> = MutableStateFlow {}
-
-    data class Action(
-        private val name: String,
-        val runnable: suspend () -> Unit
-    ) {
-        val key get() = "$name+${hashCode()}"
-    }
-
     data class State(
-        val prompt: String = "",
+        val prompt: TextController = TextController(),
         val prompts: Set<String> = setOf(),
         val images: List<Bitmap> = emptyList(),
-        val action: Action? = null
+        val onPromptDelete: String? = null
     )
 
     override fun initialState(props: Unit, snapshot: Snapshot?): State = State(
-        prompt = runBlocking { cache.prompt.first() }
+        prompt = runBlocking { TextController(cache.prompt.first()) }
     )
 
     override fun render(
@@ -50,41 +34,38 @@ class Text2ImageWorkflow @Inject constructor(
         context: RenderContext
     ): ComposeScreen {
 
-        context.runningWorker(stateFlow.asWorker(), handler = ::updateState)
+        context.runningWorker(
+            renderState.prompt.onTextChanged
+                .onEach(cache::setPrompt)
+                .asWorker(), "prompt"
+        ) { WorkflowAction.noAction() }
 
-        context.runningWorker(updateState.map { it() }.asWorker(), handler = { noAction() })
+        context.runningWorker(cache.images.asWorker(), handler = setImages)
+        context.runningWorker(cache.prompts.asWorker(), handler = setPrompts)
 
-        renderState.action?.let { action ->
-            context.runningSideEffect(action.key) {
-                action.runnable()
-                context.eventHandler { state = state.copy(action = null) }
-            }
+        renderState.onPromptDelete?.let {
+            context.runningSideEffect(it) { cache.deletePrompt(it) }
         }
 
         return Text2ImageScreen(
             prompt = renderState.prompt,
-            onPromptChanged = context.eventHandler { it -> setPrompt(it) },
             prompts = renderState.prompts,
-            onPromptDeleted = context.eventHandler { it -> deletePrompt(it) },
+            onPromptDelete = context.onPromptDelete(),
             onSubmit = context.eventHandler { setOutput(Submit) },
             images = renderState.images
         )
     }
 
-    private fun setPrompt(prompt: String) = setAction("prompt") {
-        cache.setPrompt(prompt)
+    private val setPrompts = { prompts: Set<String> ->
+        action { state = state.copy(prompts = prompts) }
     }
 
-    private fun deletePrompt(prompt: String) = setAction("deletePrompt") {
-        cache.deletePrompt(prompt)
+    private val setImages = { images: List<Bitmap> ->
+        action { state = state.copy(images = images) }
     }
 
-    private fun updateState(state: State) = action {
-        this.state = state
-    }
-
-    private fun setAction(name: String, runnable: suspend () -> Unit) = action {
-        state = state.copy(action = Action(name, runnable))
+    private fun RenderContext.onPromptDelete(): (String) -> Unit {
+        return eventHandler { prompt -> state = state.copy(onPromptDelete = prompt) }
     }
 
     override fun snapshotState(state: State): Snapshot? = null

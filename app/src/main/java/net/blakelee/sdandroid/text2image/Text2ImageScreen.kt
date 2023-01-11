@@ -48,8 +48,10 @@ import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.PagerState
 import com.google.accompanist.pager.rememberPagerState
+import com.squareup.workflow1.ui.TextController
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
+import com.squareup.workflow1.ui.compose.asMutableState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import net.blakelee.sdandroid.R
@@ -59,10 +61,9 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class Text2ImageScreen(
-    val prompt: String,
-    val onPromptChanged: (String) -> Unit,
+    val prompt: TextController,
     val prompts: Set<String>,
-    val onPromptDeleted: (String) -> Unit,
+    val onPromptDelete: (String) -> Unit,
     val onSubmit: () -> Unit,
     val images: List<Bitmap>
 ) : ComposeScreen {
@@ -70,6 +71,7 @@ class Text2ImageScreen(
     @OptIn(ExperimentalPagerApi::class)
     @Composable
     override fun Content(viewEnvironment: ViewEnvironment) {
+        var prompt by prompt.asMutableState()
         Column(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(padding)
@@ -77,10 +79,10 @@ class Text2ImageScreen(
 
             ElevatedTextField(
                 value = prompt,
-                onValueChange = onPromptChanged,
+                onValueChange = { prompt = it },
                 hint = "Prompt",
                 values = prompts,
-                onValueDeleted = onPromptDeleted,
+                onValueDelete = onPromptDelete,
                 onSubmit = onSubmit,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -246,7 +248,7 @@ fun ElevatedTextField(
     value: String,
     onValueChange: (String) -> Unit,
     values: Set<String> = setOf(),
-    onValueDeleted: (String) -> Unit = {},
+    onValueDelete: (String) -> Unit = {},
     onSubmit: () -> Unit,
     hint: String,
     visualTransformation: VisualTransformation = VisualTransformation.None,
@@ -294,8 +296,12 @@ fun ElevatedTextField(
                     if (value.isEmpty()) {
                         Text(
                             text = hint,
-                            style = MaterialTheme.typography.labelLarge
-                                .copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                            style = LocalTextStyle.current
+                                .copy(
+                                    color = MaterialTheme.colorScheme
+                                        .onSurfaceVariant
+                                        .copy(alpha = 0.5f)
+                                ),
                             modifier = Modifier.align(Alignment.CenterStart)
                         )
                     }
@@ -357,7 +363,7 @@ fun ElevatedTextField(
                     },
                     trailingIcon = {
                         IconButton(onClick = {
-                            onValueDeleted(selectionOption)
+                            onValueDelete(selectionOption)
                         }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_clear),

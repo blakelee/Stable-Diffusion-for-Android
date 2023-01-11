@@ -1,8 +1,6 @@
 package net.blakelee.sdandroid.landing
 
-import com.squareup.workflow1.Snapshot
-import com.squareup.workflow1.StatefulWorkflow
-import com.squareup.workflow1.action
+import com.squareup.workflow1.*
 import com.squareup.workflow1.ui.compose.ComposeScreen
 import com.squareup.workflow1.ui.container.BodyAndOverlaysScreen
 import net.blakelee.sdandroid.compose.LoadingOverlay
@@ -30,11 +28,8 @@ class LoginWorkflow @Inject constructor(
         val overlay = if (renderState is State.LoggingIn) listOf(LoadingOverlay) else emptyList()
 
         if (renderState is State.LoggingIn) {
-            context.runningSideEffect("logging_in") {
-                with(renderState) {
-                    loginRepository.login(url, username, password)
-                }
-                context.actionSink.send(action { state = State.LoggedOut })
+            context.runningWorker(renderState.login) {
+                action { state = State.LoggedOut }
             }
         }
 
@@ -47,6 +42,11 @@ class LoginWorkflow @Inject constructor(
             overlay
         )
     }
+
+    private val State.LoggingIn.login
+        get() = Worker.from {
+            loginRepository.login(url, username, password)
+        }
 
     override fun snapshotState(state: State): Snapshot? = null
 }
