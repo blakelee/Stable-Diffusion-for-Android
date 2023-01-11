@@ -28,7 +28,7 @@ class LoginWorkflow @Inject constructor(
         val overlay = if (renderState is State.LoggingIn) listOf(LoadingOverlay) else emptyList()
 
         if (renderState is State.LoggingIn) {
-            context.runningWorker(renderState.login) {
+            context.runningWorker(renderState.login()) {
                 action { state = State.LoggedOut }
             }
         }
@@ -43,10 +43,9 @@ class LoginWorkflow @Inject constructor(
         )
     }
 
-    private val State.LoggingIn.login
-        get() = Worker.from {
-            loginRepository.login(url, username, password)
-        }
+    private fun State.LoggingIn.login() = Worker.from {
+        loginRepository.login(url, username, password)
+    }
 
     override fun snapshotState(state: State): Snapshot? = null
 }
