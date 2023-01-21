@@ -2,11 +2,13 @@ package net.blakelee.sdandroid.img2img
 
 import android.graphics.Bitmap
 import com.squareup.workflow1.*
+import com.squareup.workflow1.ui.TextController
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
 import net.blakelee.sdandroid.Submit
-import net.blakelee.sdandroid.combine
 import net.blakelee.sdandroid.img2img.Image2ImageWorkflow.State
 import javax.inject.Inject
 
@@ -14,34 +16,16 @@ class Image2ImageWorkflow @Inject constructor(
     private val cache: Image2ImageCache
 ) : StatefulWorkflow<Unit, State, Submit, ComposeScreen>() {
 
-    private val stateFlow: Flow<State> = combine(
-        cache.prompt,
-        cache.prompts,
-        cache.denoisingStrength,
-        cache.selectedImage,
-        cache.images,
-        flowOf<Action?>(null),
-        flowOf(false),
-        ::State
-    )
-
-    private val updateState: MutableStateFlow<suspend () -> Unit> = MutableStateFlow {}
-
-    data class Action(
-        private val name: String,
-        val runnable: suspend () -> Unit
-    ) {
-        val key get() = "$name+${hashCode()}"
-    }
+    private val updateCache = MutableSharedFlow<suspend () -> Unit>()
 
     data class State(
-        val prompt: String = "",
+        val prompt: TextController,
         val prompts: Set<String> = setOf(),
         val denoisingStrength: Float = 0.75f,
         val selectedImage: Bitmap? = null,
         val images: List<Bitmap> = emptyList(),
-        val action: Action? = null,
-        val isCropping: Boolean = false
+        val isCropping: Boolean = false,
+        val onPromptDelete: String? = null
     )
 
     override fun render(
@@ -49,87 +33,75 @@ class Image2ImageWorkflow @Inject constructor(
         renderState: State,
         context: RenderContext
     ): ComposeScreen {
+        context.runningSideEffect(renderState.selectedImage?.hashCode().toString()) {
+            cache.setSelectedImage(renderState.selectedImage)
+        }
+
+        context.runningWorker(
+            renderState.prompt.onTextChanged
+                .onEach(cache::setPrompt)
+                .asWorker(), "prompt"
+        ) { WorkflowAction.noAction() }
+
+        context.runningWorker(cache.images.asWorker(), handler = setImages)
+        context.runningWorker(cache.prompts.asWorker(), handler = setPrompts)
+
+        renderState.onPromptDelete?.let {
+            context.runningSideEffect(it) { cache.deletePrompt(it) }
+        }
+
+        context.runningSideEffect(renderState.denoisingStrength.toString()) {
+            cache.setDenoisingStrength(renderState.denoisingStrength)
+        }
+
         if (renderState.isCropping && renderState.selectedImage != null)
             return CropScreen(
                 bitmap = renderState.selectedImage,
                 onBackPressed = context.eventHandler { state = state.copy(isCropping = false) },
                 onImageCropped = context.eventHandler { bitmap ->
-                    state = state.copy(isCropping = false, action = setBitmapAction(bitmap))
+                    state = state.copy(isCropping = false, selectedImage = bitmap)
                 }
             )
-
-        context.runningWorker(stateFlow.asWorker(), handler = ::updateState)
-
-        context.runningWorker(
-            updateState.map { it() }.asWorker(),
-            handler = { WorkflowAction.noAction() })
-
-        renderState.action?.let { action ->
-            context.runningSideEffect(action.key) {
-                context.eventHandler { state = state.copy(action = null) }
-            }
-        }
 
         return Image2ImageScreen(
             prompt = renderState.prompt,
             prompts = renderState.prompts,
-            onPromptChanged = context.setAction(::setPrompt),
-            onPromptDeleted = context.setAction(::deletePrompt),
+            onPromptDelete = context.onPromptDelete(),
             onSubmit = context.eventHandler { setOutput(Submit) },
             denoisingStrength = renderState.denoisingStrength.toString(),
-            onDenoisingStrengthChanged = context.setAction(::setDenoisingStrength),
+            onDenoisingStrengthChange = context.eventHandler { it ->
+                state = state.copy(denoisingStrength = it.toFloatOrNull() ?: 0f)
+            },
             selectedImage = renderState.selectedImage,
             images = renderState.images,
             onImageSelected = context.eventHandler { bitmap ->
                 state = state.copy(
                     isCropping = true,
-                    selectedImage = bitmap,
-                    action = setBitmapAction(bitmap)
+                    selectedImage = bitmap
                 )
             }
         )
     }
 
-    private fun <EventT> RenderContext.setAction(action: (EventT) -> Unit): (EventT) -> Unit {
-        return { event -> eventHandler { action(event) } }
+    private val setPrompts = { prompts: Set<String> ->
+        action { state = state.copy(prompts = prompts) }
     }
 
-    private fun setBitmapAction(bitmap: Bitmap?): Action = Action("selectedImage") {
-        cache.setSelectedImage(bitmap)
+    private val setImages = { images: List<Bitmap> ->
+        action { state = state.copy(images = images) }
     }
 
-    private fun setPrompt(prompt: String) = setAction("prompt") {
-        cache.setPrompt(prompt)
-    }
-
-    private fun deletePrompt(prompt: String) = setAction("deletePrompt") {
-        cache.deletePrompt(prompt)
-    }
-
-    private fun setDenoisingStrength(denoisingStrength: String) = setAction("denoisingStrength") {
-        val denoisingStrength = denoisingStrength.toFloatOrNull() ?: 0f
-        cache.setDenoisingStrength(denoisingStrength)
-    }
-
-    private fun updateState(state: State) = action {
-        this.state = this.state.copy(
-            prompt = state.prompt,
-            prompts = state.prompts,
-            denoisingStrength = state.denoisingStrength,
-            selectedImage = state.selectedImage,
-            images = state.images,
-            action = this.state.action,
-            isCropping = this.state.isCropping
-        )
-    }
-
-    private fun setAction(name: String, runnable: suspend () -> Unit) = action {
-        state = state.copy(action = Action(name, runnable))
+    private fun RenderContext.onPromptDelete(): (String) -> Unit {
+        return eventHandler { prompt -> state = state.copy(onPromptDelete = prompt) }
     }
 
     override fun snapshotState(state: State): Snapshot? = null
 
     override fun initialState(props: Unit, snapshot: Snapshot?): State = State(
-        prompt = runBlocking { cache.prompt.first() }
+        prompt = runBlocking { TextController(cache.prompt.first()) },
+        prompts = runBlocking { cache.prompts.first() },
+        denoisingStrength = runBlocking { cache.denoisingStrength.first() },
+        selectedImage = cache.selectedImage.value,
+        images = cache.images.value,
     )
 }

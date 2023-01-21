@@ -15,38 +15,46 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.google.accompanist.pager.ExperimentalPagerApi
+import com.google.accompanist.pager.HorizontalPager
+import com.google.accompanist.pager.rememberPagerState
+import com.squareup.workflow1.ui.TextController
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
+import com.squareup.workflow1.ui.compose.asMutableState
 import net.blakelee.sdandroid.compose.prompt
+import net.blakelee.sdandroid.text2image.PagerButtons
 import net.blakelee.sdandroid.text2image.RenderImage
 import net.blakelee.sdandroid.ui.theme.padding
 
 
 data class Image2ImageScreen(
-    val prompt: String,
-    val onPromptChanged: (String) -> Unit,
+    val prompt: TextController,
     val prompts: Set<String>,
-    val onPromptDeleted: (String) -> Unit,
+    val onPromptDelete: (String) -> Unit,
     val denoisingStrength: String,
-    val onDenoisingStrengthChanged: (String) -> Unit,
+    val onDenoisingStrengthChange: (String) -> Unit,
     val selectedImage: Bitmap? = null,
     val onImageSelected: (Bitmap) -> Unit,
     val images: List<Bitmap> = emptyList(),
     val onSubmit: () -> Unit
 ) : ComposeScreen {
 
+    @OptIn(ExperimentalPagerApi::class)
     @Composable
     override fun Content(viewEnvironment: ViewEnvironment) {
+        var prompt by prompt.asMutableState()
         Column(modifier = Modifier.padding(padding)) {
 
             prompt(
                 prompts = prompts,
-                onPromptDeleted = onPromptDeleted,
+                onPromptDeleted = onPromptDelete,
                 value = prompt,
-                onValueChange = onPromptChanged,
+                onValueChange = { prompt = it },
                 modifier = Modifier.fillMaxWidth(),
                 onSubmit = onSubmit
             )
@@ -61,7 +69,7 @@ data class Image2ImageScreen(
                 value = sliderPosition / 100f,
                 onValueChange = { sliderPosition = (it * 100).toInt() },
                 steps = 100,
-                onValueChangeFinished = { onDenoisingStrengthChanged(sliderPositionString) }
+                onValueChangeFinished = { onDenoisingStrengthChange(sliderPositionString) }
             )
 
             val contentResolver = LocalContext.current.contentResolver
@@ -86,8 +94,25 @@ data class Image2ImageScreen(
                 }
             }
 
-            images.forEach {
-                RenderImage(bitmap = it, modifier = Modifier.fillMaxWidth())
+            val pagerState = rememberPagerState()
+
+            Box {
+                HorizontalPager(count = images.size, state = pagerState) { pager ->
+                    RenderImage(bitmap = images[pager], modifier = Modifier.fillMaxWidth())
+                }
+
+                // Start at the first image when we get a new set of images
+                LaunchedEffect(images.hashCode()) {
+                    pagerState.scrollToPage(0)
+                }
+
+                if (images.size > 1) {
+                    PagerButtons(
+                        numImages = images.size,
+                        pagerState = pagerState,
+                        Modifier.align(Alignment.BottomCenter)
+                    )
+                }
             }
         }
     }

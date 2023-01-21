@@ -10,8 +10,8 @@ import net.blakelee.sdandroid.PrimaryWorkflow.State
 import net.blakelee.sdandroid.img2img.Image2ImageCache
 import net.blakelee.sdandroid.img2img.Image2ImageWorkflow
 import net.blakelee.sdandroid.landing.LoginRepository
-import net.blakelee.sdandroid.main.BottomBarItem
 import net.blakelee.sdandroid.main.MainScreen
+import net.blakelee.sdandroid.main.SheetItem
 import net.blakelee.sdandroid.network.StableDiffusionRepository
 import net.blakelee.sdandroid.settings.SettingsCache
 import net.blakelee.sdandroid.settings.SettingsWorkflow
@@ -35,8 +35,8 @@ class PrimaryWorkflow @Inject constructor(
 ) : StatefulWorkflow<Unit, State, Unit, ComposeScreen>() {
 
     data class State(
-        val tab: BottomBarItem = BottomBarItem.Text2Image,
-        val submit: BottomBarItem? = null,
+        val tab: SheetItem = SheetItem.Text2Image,
+        val submit: SheetItem? = null,
         val progress: Float? = null,
         val settings: SharedSettings? = null
     )
@@ -51,9 +51,9 @@ class PrimaryWorkflow @Inject constructor(
 
         renderState.settings?.let { settings ->
             when (renderState.submit) {
-                BottomBarItem.Text2Image ->
+                SheetItem.Text2Image ->
                     context.runningWorker(text2Image(settings), handler = progress)
-                BottomBarItem.Image2Image ->
+                SheetItem.Image2Image ->
                     context.runningWorker(image2Image(settings), handler = progress)
                 else -> {}
             }
@@ -72,7 +72,11 @@ class PrimaryWorkflow @Inject constructor(
             processing = renderState.submit != null,
             selectedItem = renderState.tab,
             onItemSelected = context.eventHandler { item -> state = state.copy(tab = item) },
-            screen = nextState(context, renderState)
+            screen = nextState(context, renderState),
+            settingsScreen = context.renderChild(
+                settingsWorkflow,
+                renderState.settings
+            ) { noAction() }
         )
     }
 
@@ -83,13 +87,9 @@ class PrimaryWorkflow @Inject constructor(
         val action = action { this.state = this.state.copy(submit = state.tab) }
 
         return when (state.tab) {
-            BottomBarItem.Text2Image -> context.renderChild(t2iWorkflow, Unit, handler = { action })
-            BottomBarItem.Image2Image ->
+            SheetItem.Text2Image -> context.renderChild(t2iWorkflow, Unit, handler = { action })
+            SheetItem.Image2Image ->
                 context.renderChild(i2iWorkflow, Unit, handler = { action })
-            BottomBarItem.Settings -> context.renderChild(
-                settingsWorkflow,
-                state.settings
-            ) { noAction() }
         }
     }
 
