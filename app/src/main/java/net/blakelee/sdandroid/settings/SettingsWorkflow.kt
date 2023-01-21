@@ -2,16 +2,20 @@ package net.blakelee.sdandroid.settings
 
 import com.squareup.workflow1.*
 import com.squareup.workflow1.ui.compose.ComposeScreen
-import net.blakelee.sdandroid.Tuple11
-import net.blakelee.sdandroid.combine
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import net.blakelee.sdandroid.landing.LoginRepository
 import net.blakelee.sdandroid.settings.SettingsWorkflow.State
 import javax.inject.Inject
 
 class SettingsWorkflow @Inject constructor(
-    loginRepository: LoginRepository,
+    private val loginRepository: LoginRepository,
     private val settingsCache: SettingsCache
-) : StatefulWorkflow<SharedSettings?, State, Unit, ComposeScreen>() {
+) : StatefulWorkflow<Unit, State?, Unit, ComposeScreen?>() {
+
+    private val updateAction = MutableSharedFlow<suspend () -> Unit>()
 
     data class State(
         val url: String = "",
@@ -19,103 +23,101 @@ class SettingsWorkflow @Inject constructor(
         val models: Set<String> = emptySet(),
         val sampler: String = "",
         val samplers: Set<String> = emptySet(),
+        val denoisingStrength: Float = 0.5f,
         val cfg: Float = 8.5f,
         val steps: Int = 25,
         val width: Int = 512,
         val height: Int = 512,
         val batchCount: Int = 1,
         val batchSize: Int = 1,
-        val actionName: String? = null,
-        val action: (suspend SettingsCache.() -> Unit)? = null
+        val actionName: String? = null
     )
 
     override fun render(
-        renderProps: SharedSettings?,
-        renderState: State,
+        renderProps: Unit,
+        renderState: State?,
         context: RenderContext
-    ): ComposeScreen {
+    ): ComposeScreen? {
 
-        context.runningWorker(state) {
-            val (url, model, models, sampler, samplers, cfg, steps, width, height, batchCount, batchSize) = it
-            action {
-                state = state.copy(
-                    url = url,
-                    model = model,
-                    models = models,
-                    sampler = sampler,
-                    samplers = samplers,
-                    cfg = cfg,
-                    steps = steps,
-                    width = width,
-                    height = height,
-                    batchCount = batchCount,
-                    batchSize = batchSize
-                )
-            }
-        }
+        context.runningWorker(Worker.fromNullable {
+            State(
+                url = loginRepository.url.first(),
+                cfg = settingsCache.cfg.first(),
+                steps = settingsCache.steps.first(),
+                denoisingStrength = settingsCache.denoisingStrength.first(),
+                width = settingsCache.width.first(),
+                height = settingsCache.height.first(),
+                batchCount = settingsCache.batchCount.first(),
+                batchSize = settingsCache.batchSize.first()
+            )
+        }) { action { state = it } }
 
-        renderState.action?.let {
-            context.runningSideEffect(it.hashCode().toString()) {
-                it.invoke(settingsCache)
-                context.eventHandler { state = state.copy(actionName = null, action = null) }()
-            }
-        }
 
-        fun <T> updateAction(
-            value: suspend SettingsCache.(T) -> Unit,
-            name: String? = null
-        ): (T) -> Unit =
-            context.eventHandler { t ->
-                state = state.copy(actionName = name, action = { value(t) })
-            }
+        context.runningWorker(
+            updateAction
+                .onEach { it.invoke() }
+                .map { Unit }
+                .asWorker()
+        ) { WorkflowAction.noAction() }
+
+        if (renderState == null) return null
 
         return SettingsScreen(
             url = renderState.url,
             sampler = renderState.sampler,
-            onSamplerChanged = updateAction(SettingsCache::setSampler, "sampler"),
+            onSamplerChanged = context.updateAction(SettingsCache::setSampler) {
+                state = state?.copy(sampler = it, actionName = "sampler")
+            },
             samplers = renderState.samplers,
             samplersEnabled = renderState.actionName != "sampler",
             model = renderState.model,
             models = renderState.models,
             modelsEnabled = renderState.actionName != "model",
-            onModelChanged = updateAction(SettingsCache::setModel, "model"),
+            onModelChanged = context.updateAction(SettingsCache::setModel) {
+                state = state?.copy(model = it, actionName = "model")
+            },
             cfg = renderState.cfg,
-            onCfgChanged = updateAction(SettingsCache::setCfg),
+            onCfgChanged = context.updateAction(SettingsCache::setCfg) {
+                state = state?.copy(cfg = it)
+            },
             steps = renderState.steps,
-            onStepsChanged = updateAction(SettingsCache::setSteps),
+            onStepsChanged = context.updateAction(SettingsCache::setSteps) {
+                state = state?.copy(steps = it)
+            },
             width = renderState.width,
-            onWidthChanged = updateAction(SettingsCache::setWidth),
+            onWidthChanged = context.updateAction(SettingsCache::setWidth) {
+                state = state?.copy(width = it)
+            },
             height = renderState.height,
-            onHeightChanged = updateAction(SettingsCache::setHeight),
+            onHeightChanged = context.updateAction(SettingsCache::setHeight) {
+                state = state?.copy(height = it)
+            },
             batchCount = renderState.batchCount,
-            onBatchCountChanged = updateAction(SettingsCache::setBatchCount),
+            onBatchCountChanged = context.updateAction(SettingsCache::setBatchCount) {
+                state = state?.copy(batchCount = it)
+            },
             batchSize = renderState.batchSize,
-            onBatchSizeChanged = updateAction(SettingsCache::setBatchSize)
+            onBatchSizeChanged = context.updateAction(SettingsCache::setBatchSize) {
+                state = state?.copy(batchSize = it)
+            }
         )
     }
 
-    private val state = combine(
-        loginRepository.url,
-        settingsCache.model,
-        settingsCache.models,
-        settingsCache.sampler,
-        settingsCache.samplers,
-        settingsCache.cfg,
-        settingsCache.steps,
-        settingsCache.width,
-        settingsCache.height,
-        settingsCache.batchCount,
-        settingsCache.batchSize,
-        ::Tuple11
-    ).asWorker()
+    private fun <T : Any> RenderContext.updateAction(
+        value: suspend SettingsCache.(T) -> Unit,
+        action: WorkflowAction<*, State?, *>.Updater.(T) -> Unit
+    ): (T) -> Unit {
+        return eventHandler { t ->
+            val cacheAction: suspend () -> Unit = {
+                value.invoke(settingsCache, t)
+            }
+            state = state?.copy(actionName = null)
+            updateAction.tryEmit(cacheAction)
+            action(t)
+        }
+    }
 
-    override fun initialState(props: SharedSettings?, snapshot: Snapshot?): State = props?.let {
-        State(
-            sampler = it.sampler,
-            width = it.width,
-            height = it.height
-        )
-    } ?: State()
+    override fun initialState(props: Unit, snapshot: Snapshot?): State? = null
 
-    override fun snapshotState(state: State): Snapshot? = null
+    override fun snapshotState(state: State?): Snapshot? = null
 }

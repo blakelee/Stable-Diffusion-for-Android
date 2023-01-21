@@ -3,42 +3,33 @@ package net.blakelee.sdandroid
 import com.squareup.workflow1.*
 import com.squareup.workflow1.WorkflowAction.Companion.noAction
 import com.squareup.workflow1.ui.compose.ComposeScreen
+import com.squareup.workflow1.ui.compose.WorkflowRendering
 import dagger.multibindings.ClassKey
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import net.blakelee.sdandroid.PrimaryWorkflow.State
-import net.blakelee.sdandroid.img2img.Image2ImageCache
-import net.blakelee.sdandroid.img2img.Image2ImageWorkflow
+import net.blakelee.sdandroid.img2img.CropWorkflow
 import net.blakelee.sdandroid.landing.LoginRepository
 import net.blakelee.sdandroid.main.MainScreen
 import net.blakelee.sdandroid.main.SheetItem
-import net.blakelee.sdandroid.network.StableDiffusionRepository
 import net.blakelee.sdandroid.settings.SettingsCache
 import net.blakelee.sdandroid.settings.SettingsWorkflow
-import net.blakelee.sdandroid.settings.SharedSettings
-import net.blakelee.sdandroid.text2image.Text2ImageCache
 import net.blakelee.sdandroid.text2image.Text2ImageWorkflow
 import javax.inject.Inject
-
-object Submit
 
 @ClassKey(PrimaryWorkflow::class)
 class PrimaryWorkflow @Inject constructor(
     private val t2iWorkflow: Text2ImageWorkflow,
-    private val i2iWorkflow: Image2ImageWorkflow,
-    private val loginRepository: LoginRepository,
-    private val text2Image: Text2ImageCache,
-    private val image2Image: Image2ImageCache,
-    private val sdRepo: StableDiffusionRepository,
     private val settingsWorkflow: SettingsWorkflow,
-    private val settingsCache: SettingsCache
+    private val loginRepository: LoginRepository,
+    private val settingsCache: SettingsCache,
+    private val repository: StableDiffusionRepository
 ) : StatefulWorkflow<Unit, State, Unit, ComposeScreen>() {
 
     data class State(
         val tab: SheetItem = SheetItem.Text2Image,
-        val submit: SheetItem? = null,
+        val submit: Boolean = false,
         val progress: Float? = null,
-        val settings: SharedSettings? = null
+        val isCropping: Boolean = false
     )
 
     override fun initialState(props: Unit, snapshot: Snapshot?): State = State()
@@ -48,102 +39,53 @@ class PrimaryWorkflow @Inject constructor(
         renderState: State,
         context: RenderContext
     ): ComposeScreen {
-
-        renderState.settings?.let { settings ->
-            when (renderState.submit) {
-                SheetItem.Text2Image ->
-                    context.runningWorker(text2Image(settings), handler = progress)
-                SheetItem.Image2Image ->
-                    context.runningWorker(image2Image(settings), handler = progress)
-                else -> {}
+        if (renderState.submit) {
+            context.runningWorker(repository.submit().asWorker()) {
+                val isSubmit = it != 1f
+                action { state = state.copy(progress = it, submit = isSubmit) }
             }
         }
 
-        context.runningWorker(
-            sharedSettingsWorker(),
-            handler = { action { state = state.copy(settings = it) } }
-        )
+        var cropChild: ComposeScreen? = null
+        if (renderState.isCropping) {
+            cropChild = context.renderChild(
+                CropWorkflow,
+                settingsCache.selectedImage.value
+            ) {
+                val tab = if (it != null) SheetItem.Image2Image else SheetItem.Text2Image
+                settingsCache.selectedImage.tryEmit(it)
+                action { state = state.copy(isCropping = false, tab = tab) }
+            }
+        }
 
-        return MainScreen(
+        val mainScreen = MainScreen(
             onBack = loginRepository::logout,
-            onCancel = context.eventHandler { state = state.copy(submit = null) },
-            onSubmit = context.eventHandler { state = state.copy(submit = state.tab) },
+            onCancel = context.eventHandler { state = state.copy(submit = false) },
+            onSubmit = context.eventHandler { state = state.copy(submit = true) },
             progress = renderState.progress ?: 0f,
-            processing = renderState.submit != null,
+            processing = renderState.submit,
             selectedItem = renderState.tab,
-            onItemSelected = context.eventHandler { item -> state = state.copy(tab = item) },
-            screen = nextState(context, renderState),
-            settingsScreen = context.renderChild(
-                settingsWorkflow,
-                renderState.settings
-            ) { noAction() }
+            onItemSelected = context.eventHandler { item ->
+                val isCropping = item == SheetItem.Image2Image
+                if (!isCropping) settingsCache.selectedImage.tryEmit(null)
+                state = state.copy(tab = item, isCropping = isCropping)
+            },
+            screen = context.renderChild(t2iWorkflow, Unit, handler = { noAction() }),
+            settingsScreen = context.renderChild(settingsWorkflow, Unit) { noAction() }
         )
-    }
 
-    private fun nextState(
-        context: BaseRenderContext<Unit, State, Unit>,
-        state: State
-    ): ComposeScreen {
-        val action = action { this.state = this.state.copy(submit = state.tab) }
-
-        return when (state.tab) {
-            SheetItem.Text2Image -> context.renderChild(t2iWorkflow, Unit, handler = { action })
-            SheetItem.Image2Image ->
-                context.renderChild(i2iWorkflow, Unit, handler = { action })
-        }
-    }
-
-    private val progress = fun(progress: Float?) = action {
-        val submit = if (progress != null) state.submit else null
-        state = state.copy(submit = submit, progress = progress)
-    }
-
-    private fun text2Image(settings: SharedSettings): Worker<Float?> = flow {
-        with(settings) {
-            emitAll(text2Image.submit(sampler, cfg, steps, width, height, batchCount, batchSize)
-                .combine(progressFlow()) { processing, progress ->
-                    if (processing) progress else null
-                }
+        return ComposeScreen { viewEnvironment ->
+            WorkflowRendering(
+                rendering = mainScreen,
+                viewEnvironment = viewEnvironment
             )
-        }
-    }.asWorker()
 
-    private fun image2Image(settings: SharedSettings): Worker<Float?> = flow {
-        with(settings) {
-            emitAll(
-                image2Image.submit(sampler, cfg, steps, width, height, batchCount, batchSize)
-                    .combine(progressFlow()) { processing, progress ->
-                        if (processing) progress else null
-                    }
-            )
-        }
-    }.asWorker()
-
-    private fun sharedSettingsWorker() = combine(
-        settingsCache.sampler,
-        settingsCache.cfg,
-        settingsCache.steps,
-        settingsCache.width,
-        settingsCache.height,
-        settingsCache.batchCount,
-        settingsCache.batchSize,
-        ::SharedSettings
-    ).asWorker()
-
-    private fun progressFlow(): Flow<Float> = flow {
-        runCatching {
-            emit(0f)
-
-            var progress = 0f
-            do {
-                delay(200)
-                val newProgress = runCatching { sdRepo.progress().progress }.getOrNull() ?: 0f
-                emit(newProgress)
-                progress = maxOf(newProgress, progress)
-
-            } while (newProgress >= progress)
-
-            emit(1f)
+            cropChild?.let {
+                WorkflowRendering(
+                    rendering = cropChild,
+                    viewEnvironment = viewEnvironment
+                )
+            }
         }
     }
 

@@ -37,10 +37,10 @@ interface StableDiffusionService {
     suspend fun options(@Body body: Map<String, @JvmSuppressWildcards Any>)
 
     @POST("sdapi/v1/txt2img")
-    suspend fun text2Image(@Body text2ImageBody: Text2ImageBody): Text2ImageResponse
+    suspend fun text2Image(@Body body: Map<String, @JvmSuppressWildcards Any>): ImageResponse
 
     @POST("sdapi/v1/img2img")
-    suspend fun image2Image(@Body image2ImageBody: Image2ImageBody): Image2ImageResponse
+    suspend fun image2Image(@Body body: Map<String, @JvmSuppressWildcards Any>): ImageResponse
 }
 
 data class OptionsBody(
@@ -66,7 +66,7 @@ data class Text2ImageBody(
     val batch_size: Int = 1
 )
 
-data class Text2ImageResponse(
+data class ImageResponse(
     val images: List<String>
 )
 

@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
+import net.blakelee.sdandroid.compose.SimpleDropdown
 import net.blakelee.sdandroid.compose.config
 import net.blakelee.sdandroid.compose.steps
 import kotlin.math.roundToInt
@@ -70,6 +71,15 @@ data class SettingsScreen(
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                SimpleDropdown(
+                    value = cfg.toString(),
+                    values = (0..30).map { (it / 2f + 1f).toString() },
+                    onValueChange = {
+                        val cfgScaleFloat = it.toFloatOrNull() ?: 0f
+                        onCfgChanged(cfgScaleFloat)
+                    }
+                )
+
                 config(
                     value = cfg.toString(),
                     modifier = Modifier.weight(0.5f),

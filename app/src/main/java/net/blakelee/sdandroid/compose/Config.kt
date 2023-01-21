@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 
 @Composable
 fun RowScope.config(value: String, onValueChange: (String) -> Unit, modifier: Modifier) {
-    val options = (0 until 30).map { (it / 2f + 1f).toString() }
+    val options = (0..30).map { (it / 2f + 1f).toString() }
 
     var expanded by remember { mutableStateOf(false) }
 

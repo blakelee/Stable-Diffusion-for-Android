@@ -63,8 +63,8 @@ dependencies {
     implementation "androidx.compose.ui:ui:$compose_version"
     implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
     implementation 'androidx.compose.material3:material3:1.1.0-alpha04'
-    implementation 'com.google.accompanist:accompanist-systemuicontroller:0.27.0'
-    implementation "com.google.accompanist:accompanist-pager:0.27.0"
+    implementation 'com.google.accompanist:accompanist-systemuicontroller:0.29.0-alpha'
+    implementation "com.google.accompanist:accompanist-pager:0.29.0-alpha"
 
     implementation "com.squareup.workflow1:workflow-ui-core-android:1.8.0-beta12"
     implementation "com.squareup.workflow1:workflow-ui-compose:1.8.0-beta12"

@@ -38,7 +38,7 @@ data class MainScreen(
     val selectedItem: SheetItem,
     val onItemSelected: (SheetItem) -> Unit,
     val screen: ComposeScreen,
-    val settingsScreen: ComposeScreen
+    val settingsScreen: ComposeScreen?
 ) : ComposeScreen {
 
     @Composable
@@ -66,7 +66,13 @@ data class MainScreen(
                     progress = progress
                 )
 
-                WorkflowRendering(rendering = settingsScreen, viewEnvironment = viewEnvironment)
+                settingsScreen?.let {
+                    WorkflowRendering(rendering = settingsScreen, viewEnvironment = viewEnvironment)
+                } ?: run {
+                    // Workaround to make content height > peek height otherwise when settings
+                    // fills in it will be expanded
+                    Spacer(Modifier.height(1.dp))
+                }
             },
             sheetBackgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(16.dp),
             sheetShape = RoundedCornerShape(topStart = padding, topEnd = padding),
