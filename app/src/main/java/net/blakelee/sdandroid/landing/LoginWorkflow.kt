@@ -11,14 +11,14 @@ class LoginWorkflow @Inject constructor(
 ) : StatefulWorkflow<Unit, LoginWorkflow.State, Boolean, BodyAndOverlaysScreen<*, *>>() {
 
     sealed class State {
-        object LoggedOut : State()
+        data class LoggedOut(val error: String? = null) : State()
         data class LoggingIn(val url: String, val username: String, val password: String) : State()
     }
 
     override fun initialState(
         props: Unit,
         snapshot: Snapshot?
-    ): State = State.LoggedOut
+    ): State = State.LoggedOut()
 
     override fun render(
         renderProps: Unit,
@@ -29,12 +29,13 @@ class LoginWorkflow @Inject constructor(
 
         if (renderState is State.LoggingIn) {
             context.runningWorker(renderState.login()) {
-                action { state = State.LoggedOut }
+                action { state = State.LoggedOut(it) }
             }
         }
 
         return BodyAndOverlaysScreen(
             LandingPageScreen(
+                (renderState as? State.LoggedOut)?.error,
                 context.eventHandler { url, username, password ->
                     state = State.LoggingIn(url, username, password)
                 }

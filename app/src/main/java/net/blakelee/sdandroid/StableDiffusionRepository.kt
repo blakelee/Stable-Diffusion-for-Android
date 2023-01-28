@@ -3,7 +3,9 @@ package net.blakelee.sdandroid
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import net.blakelee.sdandroid.network.StableDiffusionService
 import net.blakelee.sdandroid.settings.SettingsCache
@@ -16,6 +18,7 @@ class StableDiffusionRepository @Inject constructor(
 ) {
 
     fun submit() = channelFlow {
+
         send(0f)
 
         val prompt = settingsCache.prompt.first()
@@ -31,38 +34,39 @@ class StableDiffusionRepository @Inject constructor(
             "width" to settingsCache.width.first(),
             "height" to settingsCache.height.first(),
             "n_iter" to settingsCache.batchCount.first(),
-            "batch_size" to settingsCache.batchSize.first()
+            "batch_size" to settingsCache.batchSize.first(),
+            "restore_faces" to settingsCache.restoreFaces.first()
         )
 
-        settingsCache.selectedImage.first()?.let { selectedImage ->
+        settingsCache.selectedImage.value?.let { selectedImage ->
             body += mapOf(
                 "init_images" to listOf(selectedImage.asString),
-                "denoising_strength" to settingsCache.denoisingStrength.first(),
+                "denoising_strength" to settingsCache.denoisingStrength.first() / 100f,
                 "include_init_images" to true
             )
 
             submit = service::image2Image
         }
 
-        coroutineScope {
-            val progress = async(Dispatchers.IO) {
-                progressFlow().collectLatest {
-                    send(it)
-                }
+        val progress = async(Dispatchers.IO) {
+            progressFlow().collectLatest {
+                send(it)
             }
-
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    val response = submit(body)
-                    settingsCache.images.emit(response.images.map { it.asBitmap })
-                }
-            }
-
-            progress.cancel()
-
         }
 
-        send(1f)
+        val imagesJob = async(Dispatchers.IO) {
+            runCatching {
+                val response = submit(body)
+                progress.cancel()
+                send(1f)
+                settingsCache.images.emit(response.images.map { it.asBitmap })
+            }
+        }
+
+        imagesJob.await()
+
+        delay(350)
+        send(-1f)
     }
 
     private val Bitmap.asString: String

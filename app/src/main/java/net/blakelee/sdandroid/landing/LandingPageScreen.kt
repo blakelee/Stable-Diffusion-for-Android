@@ -23,6 +23,7 @@ import net.blakelee.sdandroid.text2image.ElevatedTextField
 import net.blakelee.sdandroid.ui.theme.padding
 
 data class LandingPageScreen(
+    val error: String?,
     val onLogin: (url: String, username: String, password: String) -> Unit
 ) : ComposeScreen {
 
@@ -34,6 +35,7 @@ data class LandingPageScreen(
                 modifier = Modifier
                     .padding(paddingValues)
                     .padding(padding)
+                    .fillMaxSize()
             ) {
                 var url by remember { mutableStateOf("") }
                 PrefilledUrlTextField(
@@ -62,6 +64,11 @@ data class LandingPageScreen(
                         Text("Login")
                     }
                 )
+
+
+                if (error != null) {
+                    Text(error, modifier = Modifier.align(Alignment.CenterHorizontally))
+                }
             }
         }
     }

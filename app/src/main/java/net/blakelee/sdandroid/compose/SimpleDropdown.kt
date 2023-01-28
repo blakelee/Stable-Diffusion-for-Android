@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 fun SimpleDropdown(
     value: String,
     values: List<String>,
+    hint: String,
     modifier: Modifier = Modifier,
     onValueChange: (String) -> Unit
 ) {
@@ -47,7 +48,7 @@ fun SimpleDropdown(
         TextField(
             value = text,
             onValueChange = { onValueChange(it.text); text = it },
-            label = { Text("Prompt") },
+            label = { Text(hint) },
             trailingIcon = {
                 if (values.isNotEmpty()) {
                     Icon(

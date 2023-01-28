@@ -15,7 +15,7 @@ class SettingsWorkflow @Inject constructor(
     private val settingsCache: SettingsCache
 ) : StatefulWorkflow<Unit, State?, Unit, ComposeScreen?>() {
 
-    private val updateAction = MutableSharedFlow<suspend () -> Unit>()
+    private val updateAction = MutableSharedFlow<suspend () -> Unit>(extraBufferCapacity = 2)
 
     data class State(
         val url: String = "",
@@ -23,9 +23,10 @@ class SettingsWorkflow @Inject constructor(
         val models: Set<String> = emptySet(),
         val sampler: String = "",
         val samplers: Set<String> = emptySet(),
-        val denoisingStrength: Float = 0.5f,
+        val denoisingStrength: Int = 50,
         val cfg: Float = 8.5f,
         val steps: Int = 25,
+        val restoreFaces: Boolean = false,
         val width: Int = 512,
         val height: Int = 512,
         val batchCount: Int = 1,
@@ -39,26 +40,12 @@ class SettingsWorkflow @Inject constructor(
         context: RenderContext
     ): ComposeScreen? {
 
-        context.runningWorker(Worker.fromNullable {
-            State(
-                url = loginRepository.url.first(),
-                cfg = settingsCache.cfg.first(),
-                steps = settingsCache.steps.first(),
-                denoisingStrength = settingsCache.denoisingStrength.first(),
-                width = settingsCache.width.first(),
-                height = settingsCache.height.first(),
-                batchCount = settingsCache.batchCount.first(),
-                batchSize = settingsCache.batchSize.first()
-            )
-        }) { action { state = it } }
-
-
-        context.runningWorker(
-            updateAction
-                .onEach { it.invoke() }
-                .map { Unit }
-                .asWorker()
-        ) { WorkflowAction.noAction() }
+        context.runningWorker(initialStateWorker()) { action { state = it } }
+        context.runningWorker(actionWorker) { action { state = state?.copy(actionName = null) } }
+        context.runningWorker(settingsCache.samplers.asWorker(), "samplers", ::samplers)
+        context.runningWorker(settingsCache.models.asWorker(), "models", ::models)
+        context.runningWorker(settingsCache.model.asWorker(), "model", ::model)
+        context.runningWorker(settingsCache.sampler.asWorker(), "sampler", ::sampler)
 
         if (renderState == null) return null
 
@@ -84,6 +71,14 @@ class SettingsWorkflow @Inject constructor(
             onStepsChanged = context.updateAction(SettingsCache::setSteps) {
                 state = state?.copy(steps = it)
             },
+            restoreFaces = renderState.restoreFaces,
+            onRestoreFacesChanged = context.updateAction(SettingsCache::setRestoreFaces) {
+                state = state?.copy(restoreFaces = it)
+            },
+            denoisingStrength = renderState.denoisingStrength,
+            onDenoisingStrengthChanged = context.updateAction(SettingsCache::setDenoisingStrength) {
+                state = state?.copy(denoisingStrength = it)
+            },
             width = renderState.width,
             onWidthChanged = context.updateAction(SettingsCache::setWidth) {
                 state = state?.copy(width = it)
@@ -100,6 +95,38 @@ class SettingsWorkflow @Inject constructor(
             onBatchSizeChanged = context.updateAction(SettingsCache::setBatchSize) {
                 state = state?.copy(batchSize = it)
             }
+        )
+    }
+
+    private val actionWorker = updateAction.onEach { it.invoke() }.map { Unit }.asWorker()
+
+    private fun sampler(sampler: String) = action {
+        state = state?.copy(sampler = sampler)
+    }
+
+    private fun samplers(samplers: Set<String>) = action {
+        state = state?.copy(samplers = samplers)
+    }
+
+    private fun model(model: String) = action {
+        state = state?.copy(model = model)
+    }
+
+    private fun models(models: Set<String>) = action {
+        state = state?.copy(models = models)
+    }
+
+    private fun initialStateWorker() = Worker.fromNullable {
+        State(
+            url = loginRepository.url.first(),
+            cfg = settingsCache.cfg.first(),
+            steps = settingsCache.steps.first(),
+            denoisingStrength = settingsCache.denoisingStrength.first(),
+            width = settingsCache.width.first(),
+            height = settingsCache.height.first(),
+            batchCount = settingsCache.batchCount.first(),
+            batchSize = settingsCache.batchSize.first(),
+            restoreFaces = settingsCache.restoreFaces.first()
         )
     }
 

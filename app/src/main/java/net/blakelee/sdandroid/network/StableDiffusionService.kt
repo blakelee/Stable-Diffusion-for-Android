@@ -1,11 +1,12 @@
 package net.blakelee.sdandroid.network
 
+import retrofit2.Response
 import retrofit2.http.*
 
 interface StableDiffusionService {
 
     @GET
-    suspend fun isLoggedIn(@Url url: String): Boolean
+    suspend fun isLoggedIn(@Url url: String): Response<*>
 
     @FormUrlEncoded
     @POST

@@ -15,6 +15,7 @@ private val SAMPLER_KEY = stringPreferencesKey("sampler")
 private val SAMPLERS_KEY = stringSetPreferencesKey("samplers")
 private val CFG_KEY = floatPreferencesKey("cfg")
 private val STEPS_KEY = intPreferencesKey("steps")
+private val RESTORE_FACES_KEY = booleanPreferencesKey("restoreFaces")
 private val HEIGHT_KEY = intPreferencesKey("height")
 private val WIDTH_KEY = intPreferencesKey("width")
 private val COUNT_KEY = intPreferencesKey("batchCount")
@@ -80,7 +81,8 @@ class SettingsCache @Inject constructor(
     ) { server, dataStore -> server.ifEmpty { dataStore } }
 
     suspend fun setModel(model: String) {
-        val success = runCatching { service.model(model) }.isSuccess
+        val body = mapOf("sd_model_checkpoint" to model)
+        val success = runCatching { service.options(body) }.isSuccess
         if (success) {
             dataStore.edit { preferences ->
                 preferences[MODEL_KEY] = model
@@ -115,12 +117,15 @@ class SettingsCache @Inject constructor(
     val steps: Flow<Int> = get(STEPS_KEY, 25)
     suspend fun setSteps(steps: Int) = set(STEPS_KEY, steps)
 
+    val restoreFaces: Flow<Boolean> = get(RESTORE_FACES_KEY, false)
+    suspend fun setRestoreFaces(restoreFaces: Boolean) = set(RESTORE_FACES_KEY, restoreFaces)
+
     val cfg: Flow<Float> = get(CFG_KEY, 8.5f)
     suspend fun setCfg(cfg: Float) = set(CFG_KEY, cfg)
 
-    val denoisingStrength = get(DENOISING_STRENGTH_KEY, 0.5f)
-    suspend fun setDenoisingStrength(denoisingStrength: Float) =
-        set(DENOISING_STRENGTH_KEY, denoisingStrength)
+    val denoisingStrength = get(DENOISING_STRENGTH_KEY, 0.5f).map { (it * 100).toInt() }
+    suspend fun setDenoisingStrength(denoisingStrength: Int) =
+        set(DENOISING_STRENGTH_KEY, denoisingStrength / 100f)
 
     val height: Flow<Int> = get(HEIGHT_KEY, 512)
     suspend fun setHeight(height: Int) = set(HEIGHT_KEY, height)

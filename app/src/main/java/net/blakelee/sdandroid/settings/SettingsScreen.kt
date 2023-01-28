@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -15,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import com.squareup.workflow1.ui.ViewEnvironment
 import com.squareup.workflow1.ui.compose.ComposeScreen
 import net.blakelee.sdandroid.compose.SimpleDropdown
-import net.blakelee.sdandroid.compose.config
 import net.blakelee.sdandroid.compose.steps
 import kotlin.math.roundToInt
 
@@ -33,6 +33,10 @@ data class SettingsScreen(
     val onCfgChanged: (Float) -> Unit,
     val steps: Int,
     val onStepsChanged: (Int) -> Unit,
+    val restoreFaces: Boolean,
+    val onRestoreFacesChanged: (Boolean) -> Unit,
+    val denoisingStrength: Int,
+    val onDenoisingStrengthChanged: (Int) -> Unit,
     val width: Int,
     val onWidthChanged: (Int) -> Unit,
     val height: Int,
@@ -77,16 +81,9 @@ data class SettingsScreen(
                     onValueChange = {
                         val cfgScaleFloat = it.toFloatOrNull() ?: 0f
                         onCfgChanged(cfgScaleFloat)
-                    }
-                )
-
-                config(
-                    value = cfg.toString(),
-                    modifier = Modifier.weight(0.5f),
-                    onValueChange = {
-                        val cfgScaleFloat = it.toFloatOrNull() ?: 0f
-                        onCfgChanged(cfgScaleFloat)
-                    }
+                    },
+                    hint = "Cfg",
+                    modifier = Modifier.fillMaxWidth(0.5f)
                 )
 
                 steps(
@@ -98,6 +95,26 @@ data class SettingsScreen(
                     }
                 )
             }
+
+            Row {
+                Checkbox(checked = restoreFaces, onCheckedChange = onRestoreFacesChanged)
+                Text("Restore Faces", modifier = Modifier.align(Alignment.CenterVertically))
+            }
+
+            var denoisingStrength by remember(denoisingStrength) { mutableStateOf(denoisingStrength) }
+            Column {
+                Text(text = String.format("Denoising Strength  %.2f", denoisingStrength / 100f))
+                Slider(
+                    value = denoisingStrength / 100f,
+                    onValueChange = { denoisingStrength = (it * 100).roundToInt() },
+                    valueRange = 0f..1f,
+                    steps = 101,
+                    onValueChangeFinished = {
+                        onDenoisingStrengthChanged(denoisingStrength)
+                    }
+                )
+            }
+
 
             DimensionSlider(
                 text = { position -> "Width: $position" },
@@ -195,6 +212,7 @@ fun Dropdown(
                     }
                 }
             },
+            singleLine = true,
             colors = ExposedDropdownMenuDefaults.textFieldColors(),
             modifier = Modifier
                 .fillMaxWidth()

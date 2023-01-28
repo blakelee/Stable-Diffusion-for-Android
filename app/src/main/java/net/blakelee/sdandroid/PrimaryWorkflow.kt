@@ -41,7 +41,7 @@ class PrimaryWorkflow @Inject constructor(
     ): ComposeScreen {
         if (renderState.submit) {
             context.runningWorker(repository.submit().asWorker()) {
-                val isSubmit = it != 1f
+                val isSubmit = it != -1f
                 action { state = state.copy(progress = it, submit = isSubmit) }
             }
         }
