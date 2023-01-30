@@ -1,0 +1,13 @@
+name: Android CI
+- uses: sparkfabrik/android-build-action@v1.3.1
+
+on:
+  push:
+    branches: [ "master" ]
+
+with:
+  project-path: android
+  output-path: sd-android.apk
+  ruby-version: "2.7.5"
+  bundler-version: "2.3.26"
+  fastlane-env: "debug"
