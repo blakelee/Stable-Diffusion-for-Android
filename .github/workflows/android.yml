@@ -1,11 +1,11 @@
 on: push
 
 jobs:
-  build-android:
+  build:
+    runs-on: ubuntu-latest
+    
     steps:
-      - name: Build Android App
-        uses: sparkfabrik/android-build-action@v1.3.1
-       
+      - uses: sparkfabrik/android-build-action@v1.3.1   
         with:
           project-path: android
           output-path: sd-android.apk
