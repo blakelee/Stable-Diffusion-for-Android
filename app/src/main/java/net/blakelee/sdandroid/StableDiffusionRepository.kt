@@ -60,6 +60,10 @@ class StableDiffusionRepository @Inject constructor(
                 progress.cancel()
                 send(1f)
                 settingsCache.images.emit(response.images.map { it.asBitmap })
+            }.onFailure {
+                runCatching { service.interrupt() }
+                send(it.message.orEmpty())
+                return@async
             }
         }
 

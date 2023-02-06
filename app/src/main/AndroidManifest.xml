@@ -34,7 +34,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:host="*.gradio.app"
+                    android:host="*.gradio.live"
                     android:scheme="https" />
             </intent-filter>
         </activity>

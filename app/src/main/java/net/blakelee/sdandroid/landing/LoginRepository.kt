@@ -21,7 +21,7 @@ class LoginRepository @Inject constructor(
 
         val url = when (url.any { !it.isLetterOrDigit() }) {
             true -> url.dropLastWhile { it == '/' }
-            false -> "https://$url.gradio.app"
+            false -> "https://$url.gradio.live"
         }
 
         val result = service.isLoggedIn("$url/login_check")

@@ -129,7 +129,7 @@ fun PrefilledUrlTextField(
         @Composable { Text(text = "https://", color = color) }
     } else null
     val trailing: @Composable (() -> Unit)? = if (isOnlyBaseUrl) {
-        @Composable { Text(text = ".gradio.app", color = color) }
+        @Composable { Text(text = ".gradio.live", color = color) }
     } else null
 
     val cornerShape = remember { RoundedCornerShape(4.dp) }

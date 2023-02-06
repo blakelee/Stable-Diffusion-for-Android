@@ -29,7 +29,8 @@ class PrimaryWorkflow @Inject constructor(
         val tab: SheetItem = SheetItem.Text2Image,
         val submit: Boolean = false,
         val progress: Float? = null,
-        val isCropping: Boolean = false
+        val isCropping: Boolean = false,
+        val error: String? = null
     )
 
     override fun initialState(props: Unit, snapshot: Snapshot?): State = State()
@@ -42,7 +43,13 @@ class PrimaryWorkflow @Inject constructor(
         if (renderState.submit) {
             context.runningWorker(repository.submit().asWorker()) {
                 val isSubmit = it != -1f
-                action { state = state.copy(progress = it, submit = isSubmit) }
+                when (it) {
+                    is Float -> action {
+                        state = state.copy(progress = it, submit = isSubmit, error = null)
+                    }
+                    is String -> action { state = state.copy(error = it) }
+                    else -> noAction()
+                }
             }
         }
 
@@ -71,7 +78,8 @@ class PrimaryWorkflow @Inject constructor(
                 state = state.copy(tab = item, isCropping = isCropping)
             },
             screen = context.renderChild(t2iWorkflow, Unit, handler = { noAction() }),
-            settingsScreen = context.renderChild(settingsWorkflow, Unit) { noAction() }
+            settingsScreen = context.renderChild(settingsWorkflow, Unit) { noAction() },
+            error = renderState.error
         )
 
         return ComposeScreen { viewEnvironment ->

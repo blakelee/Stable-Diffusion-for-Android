@@ -1,5 +1,6 @@
 package net.blakelee.sdandroid.main
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -38,7 +40,8 @@ data class MainScreen(
     val selectedItem: SheetItem,
     val onItemSelected: (SheetItem) -> Unit,
     val screen: ComposeScreen,
-    val settingsScreen: ComposeScreen?
+    val settingsScreen: ComposeScreen?,
+    val error: String? = null
 ) : ComposeScreen {
 
     @Composable
@@ -46,6 +49,10 @@ data class MainScreen(
         BackHandler(onBack = onBack)
 
         val scaffoldState = rememberBottomSheetScaffoldState()
+
+        error?.let {
+            Toast.makeText(LocalContext.current, it, Toast.LENGTH_SHORT).show()
+        }
 
         BottomSheetScaffold(
             content = { paddingValues ->
