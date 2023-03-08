@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">SD Android</string>
+    <string name="app_name">CreAIte</string>
     <string name="text">Text2Image</string>
     <string name="image">Image2Image</string>
     <string name="submit">Submit</string>
